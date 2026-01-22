@@ -1,0 +1,764 @@
+/**
+ * OpenNOF1 Frontend Logic
+ */
+
+// Configuration
+const API_BASE = '/api';
+const REFRESH_INTERVAL = 5000; // 5 seconds
+const SYMBOLS = ['BTC', 'ETH', 'BNB', 'SOL', 'DOGE'];
+
+// State
+let equityChart = null;
+let miniCharts = {};
+
+// 使用浏览器本地时区格式化时间显示
+function formatTimeWithTZ(isoString, options = {}) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    
+    const defaultOptions = {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    return date.toLocaleString('zh-CN', { ...defaultOptions, ...options });
+}
+
+// 获取本地时区的分组键 (分钟级别)
+function getLocalGroupKey(isoString) {
+    if (!isoString) return 'unknown';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return 'unknown';
+    // 使用本地时区的 YYYY-MM-DDTHH:MM 格式作为分组键
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize tabs
+    initTabs();
+
+    // Initialize charts
+    initEquityChart();
+    initMiniCharts();
+
+    // Initial data fetch
+    updateStatus();
+    updateAccountSummary();
+    updateEquityChart();
+    updateTickers();
+    fetchDecisions();
+    fetchPositions();
+    fetchMemory();
+
+    // Setup event listeners
+    setupEventListeners();
+
+    // Start polling
+    setInterval(() => {
+        updateStatus();
+        updateAccountSummary();
+        updateTickers();
+        fetchPositions();
+    }, REFRESH_INTERVAL);
+
+    // Slower poll for decisions and chart
+    setInterval(() => {
+        fetchDecisions();
+        updateEquityChart();
+    }, 15000);
+});
+
+// --- Tab System ---
+
+const SETTINGS_AUTH_KEY = 'opennof1_settings_auth';
+
+function isSettingsAuthenticated() {
+    return localStorage.getItem(SETTINGS_AUTH_KEY) === 'true';
+}
+
+// 更新设置标签的显示状态
+function updateSettingsAuthState() {
+    const authContainer = document.getElementById('settings-auth');
+    const contentContainer = document.getElementById('settings-content');
+    const isAuth = isSettingsAuthenticated();
+    
+    if (authContainer) authContainer.style.display = isAuth ? 'none' : 'flex';
+    if (contentContainer) contentContainer.style.display = isAuth ? 'block' : 'none';
+}
+
+async function verifySettingsPassword() {
+    const input = document.getElementById('settings-password');
+    const error = document.getElementById('password-error');
+    const password = input?.value || '';
+    
+    const result = await fetchAPI('/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+    });
+    
+    if (result?.success) {
+        localStorage.setItem(SETTINGS_AUTH_KEY, 'true');
+        updateSettingsAuthState();
+    } else {
+        if (error) error.style.display = 'block';
+        if (input) input.value = '';
+    }
+}
+
+function initTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const target = document.getElementById(`tab-${tabId}`);
+            if (target) target.classList.add('active');
+            
+            // 切换到设置标签时更新认证状态
+            if (tabId === 'settings') {
+                updateSettingsAuthState();
+            }
+        });
+    });
+    
+    // 密码验证按钮
+    document.getElementById('btn-verify-password')?.addEventListener('click', verifySettingsPassword);
+    
+    // 回车键提交
+    document.getElementById('settings-password')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') verifySettingsPassword();
+    });
+    
+    // 初始化设置标签认证状态
+    updateSettingsAuthState();
+}
+
+// --- Mini Charts (币种 24h 走势) ---
+
+function initMiniCharts() {
+    SYMBOLS.forEach(symbol => {
+        const ctx = document.getElementById(`mini-${symbol}`);
+        if (!ctx) return;
+        
+        miniCharts[symbol] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    borderColor: '#666',
+                    borderWidth: 1.5,
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false }
+                }
+            }
+        });
+    });
+}
+
+async function updateTickers() {
+    const data = await fetchAPI('/tickers');
+    if (!data) return;
+    
+    SYMBOLS.forEach(symbol => {
+        const ticker = data.find(t => t.symbol && t.symbol.startsWith(symbol));
+        if (!ticker) return;
+        
+        const item = document.querySelector(`#ticker-${symbol}`);
+        if (!item) return;
+        
+        const priceEl = item.querySelector('.ticker-price');
+        const changeEl = item.querySelector('.ticker-change');
+        
+        if (priceEl) {
+            const price = parseFloat(ticker.price);
+            priceEl.textContent = price >= 1000 ? `$${price.toFixed(0)}` : 
+                                  price >= 1 ? `$${price.toFixed(2)}` : 
+                                  `$${price.toFixed(4)}`;
+        }
+        
+        if (changeEl) {
+            const change = parseFloat(ticker.change_24h) || 0;
+            changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+            changeEl.className = `ticker-change ${change >= 0 ? 'positive' : 'negative'}`;
+        }
+        
+        // Update mini chart color based on 24h change
+        const chart = miniCharts[symbol];
+        if (chart && ticker.change_24h !== undefined) {
+            const color = parseFloat(ticker.change_24h) >= 0 ? '#00c853' : '#ff1744';
+            chart.data.datasets[0].borderColor = color;
+            chart.update('none');
+        }
+        
+        // Update mini chart data (from sparkline if available)
+        if (ticker.sparkline && chart) {
+            chart.data.labels = ticker.sparkline.map((_, i) => i);
+            chart.data.datasets[0].data = ticker.sparkline;
+            chart.update('none');
+        }
+    });
+}
+
+// --- Chart ---
+
+function initEquityChart() {
+    const ctx = document.getElementById('equityChart');
+    if (!ctx) return;
+
+    equityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '收益率 %',
+                data: [],
+                borderColor: '#00c853',
+                backgroundColor: 'rgba(0, 200, 83, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: (context) => `${context.parsed.y.toFixed(2)}%`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(0,0,0,0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        maxTicksLimit: 6,
+                        font: { size: 10 }
+                    }
+                },
+                y: {
+                    display: true,
+                    // 初始时 0 轴在中心
+                    suggestedMin: -5,
+                    suggestedMax: 5,
+                    grid: {
+                        color: (context) => context.tick.value === 0 ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        callback: (v) => `${v.toFixed(1)}%`,
+                        font: { size: 10 }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            }
+        }
+    });
+}
+
+async function updateEquityChart() {
+    const data = await fetchAPI('/equity-history?limit=100');
+    if (!data || !data.data || !equityChart) return;
+
+    const labels = data.data.map(d => {
+        const date = new Date(d.timestamp);
+        return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    });
+
+    const values = data.data.map(d => d.profit_pct);
+
+    // Update chart color based on last value
+    const lastValue = values[values.length - 1] || 0;
+    const color = lastValue >= 0 ? '#00c853' : '#ff1744';
+    equityChart.data.datasets[0].borderColor = color;
+    equityChart.data.datasets[0].backgroundColor = lastValue >= 0
+        ? 'rgba(0, 200, 83, 0.1)'
+        : 'rgba(255, 23, 68, 0.1)';
+
+    equityChart.data.labels = labels;
+    equityChart.data.datasets[0].data = values;
+    equityChart.update('none');
+}
+
+// --- Account Summary ---
+
+async function updateAccountSummary() {
+    const data = await fetchAPI('/account-summary');
+    if (!data) return;
+
+    // Total value display
+    const totalEl = document.getElementById('total-value');
+    const changeEl = document.getElementById('total-change');
+    if (totalEl) totalEl.textContent = `$${formatNumber(data.total_equity)}`;
+    if (changeEl) {
+        const pct = data.total_profit_pct || 0;
+        changeEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+        changeEl.className = `change ${pct >= 0 ? 'positive' : 'negative'}`;
+    }
+
+    // Stats
+    updateStat('stat-total', data.total_equity);
+    // 活动资产 = 已占用保证金 (total - free)
+    const usedMargin = data.total_equity - data.free_balance;
+    updateStat('stat-active', usedMargin, false);
+    document.getElementById('stat-positions').textContent = `${data.position_count} 持仓`;
+
+    updateStat('stat-profit', data.total_profit, true);
+    const profitPctEl = document.getElementById('stat-profit-pct');
+    if (profitPctEl) {
+        const pct = data.total_profit_pct || 0;
+        profitPctEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+        profitPctEl.className = `sub ${pct >= 0 ? 'positive' : 'negative'}`;
+    }
+
+    updateStat('stat-profit-24h', data.profit_24h, true);
+    const profit24hPctEl = document.getElementById('stat-profit-24h-pct');
+    if (profit24hPctEl) {
+        const pct = data.profit_24h_pct || 0;
+        profit24hPctEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+        profit24hPctEl.className = `sub ${pct >= 0 ? 'positive' : 'negative'}`;
+    }
+}
+
+function updateStat(id, value, showSign = false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const formatted = formatNumber(value);
+    el.textContent = showSign && value > 0 ? `+$${formatted}` : `$${formatted}`;
+    if (showSign) {
+        el.className = `value ${value >= 0 ? 'positive' : 'negative'}`;
+    }
+}
+
+function formatNumber(num) {
+    if (num === undefined || num === null) return '0.00';
+    return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// --- API ---
+
+async function fetchAPI(endpoint, options = {}) {
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, options);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error(`API Error (${endpoint}):`, error);
+        return null;
+    }
+}
+
+// --- Status ---
+
+async function updateStatus() {
+    const data = await fetchAPI('/status');
+    if (!data) return;
+
+    const dotEl = document.getElementById('status-dot');
+    const textEl = document.getElementById('status-text');
+    const startBtn = document.getElementById('btn-start');
+    const stopBtn = document.getElementById('btn-stop');
+
+    if (data.running) {
+        if (dotEl) dotEl.className = 'status-dot running';
+        if (textEl) textEl.textContent = '运行中';
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = false;
+    } else {
+        if (dotEl) dotEl.className = 'status-dot stopped';
+        if (textEl) textEl.textContent = '已停止';
+        if (startBtn) startBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = true;
+    }
+
+    // Live trading toggle
+    const liveToggle = document.getElementById('live-trading');
+    if (liveToggle) liveToggle.checked = data.live_trading || false;
+}
+
+// --- Decisions ---
+// 已显示的决策组键集合 (用于增量更新)
+let displayedGroupKeys = new Set();
+
+async function fetchDecisions() {
+    const data = await fetchAPI('/decisions');
+    const container = document.getElementById('decisions-list');
+    if (!container) return;
+
+    // 验证返回的是数组而非错误对象
+    if (!data || !Array.isArray(data)) {
+        if (displayedGroupKeys.size === 0) {
+            container.innerHTML = '<div class="text-muted text-center">暂无模型输出</div>';
+        }
+        return;
+    }
+
+    if (data.length === 0) {
+        if (displayedGroupKeys.size === 0) {
+            container.innerHTML = '<div class="text-muted text-center">暂无模型输出</div>';
+        }
+        return;
+    }
+
+    // 按时间戳分组 (同一分钟内的决策视为同一轮)
+    const groups = {};
+    data.forEach(d => {
+        // 使用浏览器本地时区的分钟级别时间戳作为分组键
+        const ts = getLocalGroupKey(d.timestamp);
+        if (!groups[ts]) {
+            groups[ts] = {
+                key: ts,
+                timestamp: d.timestamp,
+                reasoning: d.reasoning || '',
+                tools: []
+            };
+        }
+        // 如果当前决策有更长的 reasoning，使用它
+        if (d.reasoning && d.reasoning.length > groups[ts].reasoning.length) {
+            groups[ts].reasoning = d.reasoning;
+        }
+        groups[ts].tools.push(d);
+    });
+
+    // 按时间倒序排列分组
+    const sortedKeys = Object.keys(groups).sort().reverse().slice(0, 10);
+
+    // 找出新的分组 (尚未显示的)
+    const newKeys = sortedKeys.filter(key => !displayedGroupKeys.has(key));
+
+    // 如果是首次加载或需要完全刷新
+    if (displayedGroupKeys.size === 0 || container.querySelector('.text-muted')) {
+        container.innerHTML = '';
+        displayedGroupKeys.clear();
+        
+        // 渲染所有分组
+        sortedKeys.forEach(key => {
+            const groupHtml = renderDecisionGroup(groups[key]);
+            container.insertAdjacentHTML('beforeend', groupHtml);
+            displayedGroupKeys.add(key);
+        });
+    } else if (newKeys.length > 0) {
+        // 增量更新：只在顶部添加新分组
+        newKeys.reverse().forEach(key => {
+            const groupHtml = renderDecisionGroup(groups[key]);
+            container.insertAdjacentHTML('afterbegin', groupHtml);
+            displayedGroupKeys.add(key);
+        });
+        
+        // 移除超出限制的旧分组
+        const allGroups = container.querySelectorAll('.decision-group');
+        if (allGroups.length > 10) {
+            for (let i = 10; i < allGroups.length; i++) {
+                const oldKey = allGroups[i].dataset.groupKey;
+                if (oldKey) displayedGroupKeys.delete(oldKey);
+                allGroups[i].remove();
+            }
+        }
+    }
+}
+
+// 渲染单个决策分组
+function renderDecisionGroup(group) {
+    // 使用配置的时区格式化时间
+    const time = formatTimeWithTZ(group.timestamp);
+
+    // AI 分析文本 (如果有)
+    let reasoningHtml = '';
+    if (group.reasoning && group.reasoning.trim()) {
+        const lines = group.reasoning.trim().split('\n').map(line => 
+            `<p style="margin: 0.25rem 0;">${escapeHtml(line)}</p>`
+        ).join('');
+        reasoningHtml = `<div class="ai-reasoning">${lines}</div>`;
+    }
+
+    // 工具名称汉化映射
+    const TOOL_NAMES = {
+        'trade_in': '开仓',
+        'close_position': '平仓',
+        'set_leverage': '设置杠杆',
+        'set_margin_mode': '保证金模式',
+        'modify_position': '修改止盈止损',
+        'update_memory': '更新记忆'
+    };
+
+    // 工具调用卡片
+    let toolsHtml = '';
+    group.tools.forEach((d, idx) => {
+        const actionClass = d.action === 'BUY' ? 'buy' : 
+                           d.action === 'SELL' || d.action === 'CLOSE' ? 'sell' : '';
+        const toolName = d.tool_name || 'unknown';
+        const displayName = TOOL_NAMES[toolName] || toolName.toUpperCase();
+        const uniqueId = `${group.key}-${idx}`.replace(/[^a-zA-Z0-9-]/g, '-');
+        
+        // 格式化工具参数
+        let argsHtml = '';
+        if (d.args && Object.keys(d.args).length > 0) {
+            const argsLines = Object.entries(d.args).map(([k, v]) => 
+                `<div class="args-line"><span class="args-key">${escapeHtml(k)}:</span> <span class="args-value">${escapeHtml(String(v))}</span></div>`
+            ).join('');
+            argsHtml = `<div class="tool-args" id="args-${uniqueId}" style="display: none;">${argsLines}</div>`;
+        }
+        
+        // 状态图标
+        let statusHtml = '';
+        if (d.status) {
+            const statusClass = d.status === 'SUCCESS' ? 'positive' : 'negative';
+            const statusIcon = d.status === 'SUCCESS' ? '✓' : '✗';
+            statusHtml = `<span class="tool-status ${statusClass}">${statusIcon}</span>`;
+        }
+        
+        toolsHtml += `
+            <div class="tool-card ${actionClass}">
+                <div class="tool-card-header" onclick="toggleToolArgs('${uniqueId}')">
+                    <span class="tool-badge">${displayName}</span>
+                    <span class="tool-info">${d.info || '无描述'}</span>
+                    ${statusHtml}
+                    <span class="tool-toggle" id="toggle-${uniqueId}">▼</span>
+                </div>
+                ${argsHtml}
+            </div>
+        `;
+    });
+
+    return `
+        <div class="decision-group" data-group-key="${group.key}">
+            <div class="decision-header">
+                <span class="decision-time">${time}</span>
+            </div>
+            ${reasoningHtml}
+            <div class="tool-cards">
+                ${toolsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// 展开/折叠工具参数
+function toggleToolArgs(uniqueId) {
+    const args = document.getElementById(`args-${uniqueId}`);
+    const toggle = document.getElementById(`toggle-${uniqueId}`);
+    if (!args) return;
+    
+    if (args.style.display === 'none') {
+        args.style.display = 'block';
+        if (toggle) toggle.textContent = '▲';
+    } else {
+        args.style.display = 'none';
+        if (toggle) toggle.textContent = '▼';
+    }
+}
+
+// HTML 转义函数
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function toggleMcpDetails(idx) {
+    const details = document.getElementById(`details-${idx}`);
+    const toggle = document.getElementById(`toggle-${idx}`);
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        toggle.textContent = '▲';
+    } else {
+        details.style.display = 'none';
+        toggle.textContent = '▼';
+    }
+}
+
+// --- Positions ---
+
+async function fetchPositions() {
+    const data = await fetchAPI('/positions');
+    const tbody = document.getElementById('positions-table-body');
+    if (!tbody) return;
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">当前无持仓</td></tr>';
+        return;
+    }
+
+    let html = '';
+    data.forEach(pos => {
+        const pnlClass = pos.unrealized_pnl >= 0 ? 'positive' : 'negative';
+        html += `
+            <tr>
+                <td>${pos.symbol.replace('/USDT', '')}</td>
+                <td><span class="badge ${pos.side === 'LONG' ? 'badge-success' : 'badge-danger'}">${pos.side}</span></td>
+                <td>${pos.leverage || 1}x</td>
+                <td>${parseFloat(pos.contracts).toFixed(4)}</td>
+                <td class="${pnlClass}">$${parseFloat(pos.unrealized_pnl).toFixed(2)}<br><small>${parseFloat(pos.percentage).toFixed(2)}%</small></td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+// --- Memory ---
+
+async function fetchMemory() {
+    const data = await fetchAPI('/memory');
+    const el = document.getElementById('memory-content');
+    if (!el) return;
+
+    if (data && data.content) {
+        el.innerHTML = `<pre style="white-space: pre-wrap; margin: 0;">${data.content}</pre>`;
+    } else {
+        el.innerHTML = '<span class="text-muted">暂无记忆内容</span>';
+    }
+}
+
+// --- Event Listeners ---
+
+// --- Event Listeners ---
+
+function setupEventListeners() {
+    // Start button
+    document.getElementById('btn-start')?.addEventListener('click', async () => {
+        const result = await fetchAPI('/start', { method: 'POST' });
+        if (result?.success) {
+            updateStatus();
+        } else {
+            showModal('启动失败', result?.error || '未知错误');
+        }
+    });
+
+    // Stop button
+    document.getElementById('btn-stop')?.addEventListener('click', async () => {
+        const result = await fetchAPI('/stop', { method: 'POST' });
+        if (result?.success) {
+            updateStatus();
+        } else {
+            showModal('停止失败', result?.error || '未知错误');
+        }
+    });
+
+    // Live trading toggle
+    document.getElementById('live-trading')?.addEventListener('change', async (e) => {
+        const enable = e.target.checked;
+        
+        if (enable) {
+            // Revert state immediately for confirmation
+            e.target.checked = false;
+            
+            showModal('风险警告', '⚠️ 确定启用实盘交易？<br>系统将使用您的账户资金执行真实订单！', {
+                type: 'confirm',
+                onConfirm: async () => {
+                    // Update UI state manually
+                    e.target.checked = true;
+                    closeModal();
+                    
+                    // Call API
+                    await fetchAPI('/live', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enable: true })
+                    });
+                }
+            });
+        } else {
+            // Disable immediately without confirmation
+            await fetchAPI('/live', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable: false })
+            });
+        }
+    });
+
+    // Save instructions
+    document.getElementById('btn-save-instructions')?.addEventListener('click', async () => {
+        const instructions = document.getElementById('custom-instructions')?.value || '';
+        const result = await fetchAPI('/instructions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instructions })
+        });
+        if (result?.success) {
+            showModal('提示', '指令已保存');
+        }
+    });
+}
+
+// --- Modal System ---
+
+function showModal(title, message, options = {}) {
+    const modal = document.getElementById('custom-modal');
+    const titleEl = document.getElementById('modal-title');
+    const msgEl = document.getElementById('modal-message');
+    const confirmBtn = document.getElementById('modal-confirm');
+    const cancelBtn = document.getElementById('modal-cancel');
+
+    if (!modal || !titleEl || !msgEl || !confirmBtn || !cancelBtn) return;
+
+    titleEl.textContent = title || '提示';
+    msgEl.innerHTML = message || ''; // Allow HTML in message
+
+    // Config buttons
+    const type = options.type || 'alert';
+    
+    // Reset buttons
+    cancelBtn.style.display = type === 'confirm' ? 'inline-block' : 'none';
+    cancelBtn.onclick = () => closeModal();
+
+    // Confirm button logic
+    confirmBtn.onclick = () => {
+        if (options.onConfirm) {
+            options.onConfirm();
+        } else {
+            closeModal();
+        }
+    };
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+function closeModal() {
+    const modal = document.getElementById('custom-modal');
+    if (modal) modal.style.display = 'none';
+}

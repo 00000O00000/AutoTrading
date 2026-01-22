@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}仪表盘 - OpenNOF1{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+
+    <!-- 左侧区域: 币种价格 + 图表 + 账户总览 -->
+    <div class="chart-section">
+        <!-- 币种现价和迷你走势 -->
+        <div class="ticker-row">
+            <div class="ticker-item" id="ticker-BTC">
+                <div class="ticker-info">
+                    <span class="ticker-symbol">BTC</span>
+                    <span class="ticker-price">$0.00</span>
+                    <span class="ticker-change">0.00%</span>
+                </div>
+                <canvas class="mini-chart" id="mini-BTC"></canvas>
+            </div>
+            <div class="ticker-item" id="ticker-ETH">
+                <div class="ticker-info">
+                    <span class="ticker-symbol">ETH</span>
+                    <span class="ticker-price">$0.00</span>
+                    <span class="ticker-change">0.00%</span>
+                </div>
+                <canvas class="mini-chart" id="mini-ETH"></canvas>
+            </div>
+            <div class="ticker-item" id="ticker-BNB">
+                <div class="ticker-info">
+                    <span class="ticker-symbol">BNB</span>
+                    <span class="ticker-price">$0.00</span>
+                    <span class="ticker-change">0.00%</span>
+                </div>
+                <canvas class="mini-chart" id="mini-BNB"></canvas>
+            </div>
+            <div class="ticker-item" id="ticker-SOL">
+                <div class="ticker-info">
+                    <span class="ticker-symbol">SOL</span>
+                    <span class="ticker-price">$0.00</span>
+                    <span class="ticker-change">0.00%</span>
+                </div>
+                <canvas class="mini-chart" id="mini-SOL"></canvas>
+            </div>
+            <div class="ticker-item" id="ticker-DOGE">
+                <div class="ticker-info">
+                    <span class="ticker-symbol">DOGE</span>
+                    <span class="ticker-price">$0.00</span>
+                    <span class="ticker-change">0.00%</span>
+                </div>
+                <canvas class="mini-chart" id="mini-DOGE"></canvas>
+            </div>
+        </div>
+
+        <!-- 收益曲线图表 -->
+        <div class="main-chart-container">
+            <div class="chart-header">
+                <div class="label">账户净值</div>
+                <div class="value" id="total-value">$0.00</div>
+                <div class="change positive" id="total-change">+0.00%</div>
+            </div>
+            <canvas id="equityChart"></canvas>
+        </div>
+
+        <!-- 账户总览面板 -->
+        <div class="account-overview">
+            <div class="account-stat">
+                <div class="label">总资产</div>
+                <div class="value" id="stat-total">$0.00</div>
+                <div class="sub">USDT</div>
+            </div>
+            <div class="account-stat">
+                <div class="label">活动资产</div>
+                <div class="value" id="stat-active">$0.00</div>
+                <div class="sub" id="stat-positions">0 持仓</div>
+            </div>
+            <div class="account-stat">
+                <div class="label">总收益</div>
+                <div class="value" id="stat-profit">$0.00</div>
+                <div class="sub" id="stat-profit-pct">0.00%</div>
+            </div>
+            <div class="account-stat">
+                <div class="label">24小时收益</div>
+                <div class="value" id="stat-profit-24h">$0.00</div>
+                <div class="sub" id="stat-profit-24h-pct">0.00%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧面板: 对话/持仓/设置 -->
+    <div class="feed-section">
+        <!-- 标签页头部 -->
+        <div class="tabs-header">
+            <button class="tab-btn active" data-tab="chat">对话</button>
+            <button class="tab-btn" data-tab="positions">持仓</button>
+            <button class="tab-btn" data-tab="settings">设置</button>
+        </div>
+
+        <!-- 对话标签 -->
+        <div id="tab-chat" class="tab-content active">
+            <div class="chat-container" id="decisions-list">
+                <div class="text-muted text-center">等待模型输出...</div>
+            </div>
+        </div>
+
+        <!-- 持仓标签 -->
+        <div id="tab-positions" class="tab-content">
+            <div class="positions-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>币种</th>
+                            <th>方向</th>
+                            <th>杠杆</th>
+                            <th>数量</th>
+                            <th>盈亏</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-table-body">
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">当前无持仓</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 设置标签 -->
+        <div id="tab-settings" class="tab-content">
+            <!-- 密码验证区域 (未验证时显示) -->
+            <div id="settings-auth" class="settings-auth-container">
+                <div class="auth-box">
+                    <div class="auth-icon">🔐</div>
+                    <div class="auth-title">访问控制</div>
+                    <p class="auth-desc">请输入密码以访问设置页面</p>
+                    <input type="password" id="settings-password" class="form-control" placeholder="输入密码">
+                    <div id="password-error" class="text-danger" style="display: none; margin-top: 0.5rem;">密码错误，请重试</div>
+                    <button class="btn btn-primary" id="btn-verify-password" style="width: 100%; margin-top: 1rem;">验证密码</button>
+                </div>
+            </div>
+
+            <!-- 设置内容 (验证后显示) -->
+            <div id="settings-content" class="settings-panel" style="display: none;">
+                <!-- 系统控制 -->
+                <div class="settings-section">
+                    <div class="settings-section-header">系统控制</div>
+                    <div class="settings-section-body">
+                        <div class="control-buttons">
+                            <button id="btn-start" class="btn btn-success">启动</button>
+                            <button id="btn-stop" class="btn btn-danger" disabled>停止</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 实盘开关 -->
+                <div class="settings-section">
+                    <div class="settings-section-header">交易模式</div>
+                    <div class="settings-section-body">
+                        <div class="status-row">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="live-trading">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span>启用实盘交易</span>
+                            <span class="badge badge-warning" style="margin-left: auto;">⚠️ 真实订单</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 自定义指令 -->
+                <div class="settings-section">
+                    <div class="settings-section-header">自定义指令</div>
+                    <div class="settings-section-body">
+                        <textarea id="custom-instructions" class="form-control"
+                            placeholder="输入给 AI 的临时指令..."></textarea>
+                        <button id="btn-save-instructions" class="btn btn-primary"
+                            style="width: 100%; margin-top: 0.5rem;">保存</button>
+                    </div>
+                </div>
+
+                <!-- AI 记忆 -->
+                <div class="settings-section">
+                    <div class="settings-section-header">AI 记忆白板</div>
+                    <div class="settings-section-body">
+                        <div id="memory-content" class="text-muted"
+                            style="font-size: 0.75rem; max-height: 150px; overflow-y: auto;">
+                            加载中...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+    <!-- Custom Modal -->
+    <div id="custom-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">提示</div>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modal-message"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modal-cancel">取消</button>
+                <button class="btn btn-primary" id="modal-confirm">确定</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

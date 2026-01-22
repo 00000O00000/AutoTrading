@@ -1,0 +1,42 @@
+/* 
+ * OpenNOF1 - Base Variables & Reset
+ * Neo-Brutalism 风格，无阴影，全宽布局
+ */
+
+:root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f5;
+    --text-primary: #000000;
+    --text-secondary: #666666;
+    --border-color: #000000;
+    /* 删除阴影 */
+    --shadow: none;
+    --shadow-sm: none;
+    --green: #00c853;
+    --red: #ff1744;
+    --border-width: 2px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    line-height: 1.5;
+    /* 防止滚动条 */
+    overflow: hidden;
+}
+
+/* 全宽无边距容器 */
+.container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    height: calc(100vh - 50px);
+}

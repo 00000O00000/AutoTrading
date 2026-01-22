@@ -1,0 +1,329 @@
+/* 
+ * OpenNOF1 - Mobile Responsive Styles
+ * Mobile-first design with progressive enhancement
+ */
+
+/* ============================================
+   MOBILE BASE (< 576px)
+   ============================================ */
+
+/* Navbar Mobile */
+@media (max-width: 576px) {
+    .navbar {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 0.75rem;
+    }
+
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+
+    .navbar-nav {
+        width: 100%;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .nav-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Container Mobile */
+@media (max-width: 576px) {
+    .container {
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    /* Dashboard 填满容器 */
+    .dashboard-grid {
+        height: 100%;
+    }
+    
+    .card {
+        box-shadow: 4px 4px 0 0 var(--border-color);
+        margin-bottom: 0.75rem;
+    }
+
+    .card-header {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .card-body {
+        padding: 0.75rem;
+    }
+}
+
+/* MCP Call Mobile */
+@media (max-width: 576px) {
+    .mcp-header {
+        padding: 0.5rem 0.25rem;
+    }
+
+    .mcp-info {
+        font-size: 0.7rem;
+    }
+
+    .mcp-tool-badge {
+        font-size: 0.5rem;
+        padding: 0.1rem 0.3rem;
+    }
+
+    .mcp-args-table td {
+        display: block;
+        width: 100%;
+        border: none;
+        padding: 0.1rem 0.25rem;
+    }
+
+    .mcp-args-table .arg-key {
+        font-weight: 800;
+        color: var(--text-secondary);
+        font-size: 0.6rem;
+    }
+
+    .mcp-args-table .arg-value {
+        padding-left: 0.5rem;
+        border-bottom: 1px dotted var(--border-color);
+        margin-bottom: 0.25rem;
+    }
+}
+
+/* Alpha Grid Mobile - 2 columns */
+@media (max-width: 576px) {
+    .alpha-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+
+    .alpha-item {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .alpha-label {
+        font-size: 0.625rem;
+    }
+
+    .alpha-value {
+        font-size: 1.25rem;
+    }
+
+    .alpha-status {
+        font-size: 0.75rem;
+    }
+}
+
+/* Table Mobile - Scrollable */
+@media (max-width: 576px) {
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -0.75rem;
+        padding: 0 0.75rem;
+    }
+
+    .table {
+        min-width: 500px;
+        font-size: 0.875rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 0.5rem;
+    }
+}
+
+/* Buttons Mobile */
+@media (max-width: 576px) {
+    .btn {
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+        box-shadow: 2px 2px 0 0 var(--border-color);
+    }
+
+    .btn-lg {
+        padding: 0.75rem 1.25rem;
+        font-size: 1rem;
+    }
+
+    /* Stack buttons vertically on mobile */
+    .card-body>.d-flex.gap-2 {
+        flex-direction: column;
+    }
+
+    .card-body>.d-flex.gap-2 .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* Decision List Mobile */
+@media (max-width: 576px) {
+    .decision-item {
+        padding: 0.5rem 0;
+    }
+
+    .decision-time {
+        font-size: 0.625rem;
+    }
+
+    .decision-action {
+        font-size: 0.875rem;
+    }
+
+    .decision-info {
+        font-size: 0.75rem;
+        line-height: 1.4;
+    }
+
+    .decision-action .badge {
+        font-size: 0.625rem;
+        padding: 0.125rem 0.375rem;
+    }
+}
+
+/* Forms Mobile */
+@media (max-width: 576px) {
+    .form-control {
+        padding: 0.625rem;
+        font-size: 16px;
+        /* Prevent iOS zoom */
+    }
+
+    textarea.form-control {
+        min-height: 120px;
+    }
+
+    .form-label {
+        font-size: 0.75rem;
+    }
+}
+
+/* Status Indicator Mobile */
+@media (max-width: 576px) {
+    .navbar .d-flex.align-center {
+        font-size: 0.75rem;
+    }
+
+    .status-dot {
+        width: 10px;
+        height: 10px;
+    }
+}
+
+/* ============================================
+   TABLET (577px - 768px)
+   ============================================ */
+
+@media (min-width: 577px) and (max-width: 768px) {
+    .navbar {
+        padding: 0.75rem 1rem;
+    }
+
+    .alpha-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .ticker-item {
+        min-width: 160px;
+    }
+}
+
+/* ============================================
+   TOUCH DEVICE OPTIMIZATIONS
+   ============================================ */
+
+@media (hover: none) and (pointer: coarse) {
+
+    /* Larger touch targets */
+    .btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .nav-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Remove hover effects */
+    .btn:hover {
+        transform: none;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* Active states for touch */
+    .btn:active {
+        transform: translate(2px, 2px);
+        box-shadow: 1px 1px 0 0 var(--border-color);
+    }
+
+    .table tr:hover {
+        background: transparent;
+    }
+}
+
+/* ============================================
+   SAFE AREAS (iPhone X+ notches)
+   ============================================ */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+    .navbar {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+    }
+
+    .container {
+        padding-left: max(0.5rem, env(safe-area-inset-left));
+        padding-right: max(0.5rem, env(safe-area-inset-right));
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* ============================================
+   LANDSCAPE MOBILE
+   ============================================ */
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .navbar {
+        padding: 0.5rem 1rem;
+    }
+
+    .card-header {
+        padding: 0.375rem 0.75rem;
+    }
+
+    .alpha-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* ============================================
+   DARK MODE SUPPORT (optional)
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #0d0d0d;
+        --text-primary: #ffffff;
+        --text-secondary: #999999;
+        --border-color: #ffffff;
+        --shadow: 6px 6px 0 0 #333333;
+        --shadow-sm: 3px 3px 0 0 #333333;
+    }
+
+    .card-header {
+        background: #333333;
+    }
+
+    .table th {
+        background: #2a2a2a;
+    }
+}
