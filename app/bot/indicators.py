@@ -573,8 +573,8 @@ def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 20) -> str
     """
     格式化 K 线数据供 AI 上下文使用。
     
-    输出最近 N 根 K 线的关键数据，使用表头格式节省 token。
-    格式：表头行 + 数据行 (时间 | 收盘 | 成交量 | MA5 | MA60)
+    对于 15m 周期，每根 K 线附带指标 (RSI, BB%B, EMA20)。
+    其他周期仅显示基础数据 (Close, Vol, MA5, MA60)。
     
     Args:
         ohlcv: K 线数据列表 [[timestamp, open, high, low, close, volume], ...]
@@ -590,16 +590,10 @@ def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 20) -> str
     # 确保不超过实际数据量
     actual_limit = min(limit, len(ohlcv))
     
-    # 计算简单移动平均 (使用模块级函数)
+    # 提取价格数据
     closes = [c[4] for c in ohlcv]
-    ma5 = calc_sma(closes, 5)
-    ma60 = calc_sma(closes, 60) if len(closes) >= 60 else [None] * len(closes)
-    
-    # 标题行
-    lines = [f"[{timeframe} K线 (最近{actual_limit}根)]"]
-    
-    # 表头行 (节省每行重复的前缀)
-    lines.append("Time | Close | Vol | MA5 | MA60")
+    highs = [c[2] for c in ohlcv]
+    lows = [c[3] for c in ohlcv]
     
     # 选择时间格式
     if timeframe == '1d':
@@ -608,6 +602,17 @@ def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 20) -> str
         time_fmt = '%m/%d %H:%M'
     else:
         time_fmt = '%H:%M'
+    
+    # 15m 周期：附带更多指标
+    if timeframe == '15m' and len(ohlcv) >= 20:
+        return _format_15m_with_indicators(ohlcv, actual_limit, time_fmt)
+    
+    # 其他周期：简洁格式
+    ma5 = calc_sma(closes, 5)
+    ma60 = calc_sma(closes, 60) if len(closes) >= 60 else [None] * len(closes)
+    
+    lines = [f"[{timeframe} K线 (最近{actual_limit}根)]"]
+    lines.append("Time | Close | Vol | MA5 | MA60")
     
     for i in range(-actual_limit, 0):
         candle = ohlcv[i]
@@ -618,8 +623,63 @@ def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 20) -> str
         ma5_val = ma5[i] if ma5[i] else close
         ma60_val = ma60[i] if ma60[i] else close
         
-        # 纯数据行，无前缀
         lines.append(f"{ts} | ${close:,.2f} | {volume:,.0f} | ${ma5_val:,.2f} | ${ma60_val:,.2f}")
+    
+    return "\n".join(lines)
+
+
+def _format_15m_with_indicators(ohlcv: list, limit: int, time_fmt: str) -> str:
+    """
+    为 15m K 线格式化，附带逐根指标。
+    
+    指标包括：RSI(14), BB%B(20,2), EMA20
+    """
+    # 创建 DataFrame 用于计算指标
+    df = create_dataframe(ohlcv)
+    
+    # 计算指标序列
+    rsi_series = _rsi(df['close'], 14)
+    upper, middle, lower = _bollinger_bands(df['close'], 20, 2.0)
+    ema20_series = _ema(df['close'], 20)
+    
+    # 计算 %B
+    percent_b = (df['close'] - lower) / (upper - lower)
+    percent_b = percent_b.fillna(0.5)
+    
+    lines = [f"[15m K线 (最近{limit}根) - 含指标]"]
+    lines.append("Time | Close | RSI | BB%B | EMA20 | Vol")
+    
+    for i in range(-limit, 0):
+        idx = df.index[i]
+        candle = ohlcv[i]
+        ts = format_time(from_timestamp(candle[0], in_milliseconds=True), time_fmt)
+        close = candle[4]
+        volume = candle[5]
+        
+        rsi_val = rsi_series.iloc[i]
+        bb_val = percent_b.iloc[i]
+        ema20_val = ema20_series.iloc[i]
+        
+        # 格式化 RSI 状态标记
+        rsi_str = f"{rsi_val:.0f}" if not pd.isna(rsi_val) else "N/A"
+        if rsi_val >= 70:
+            rsi_str += "↑"  # 超买
+        elif rsi_val <= 30:
+            rsi_str += "↓"  # 超卖
+        
+        # 格式化 %B (0=下轨, 0.5=中轨, 1=上轨)
+        if pd.isna(bb_val):
+            bb_str = "N/A"
+        elif bb_val > 1:
+            bb_str = f"{bb_val:.2f}↑"  # 突破上轨
+        elif bb_val < 0:
+            bb_str = f"{bb_val:.2f}↓"  # 突破下轨
+        else:
+            bb_str = f"{bb_val:.2f}"
+        
+        ema20_str = f"${ema20_val:,.2f}" if not pd.isna(ema20_val) else "N/A"
+        
+        lines.append(f"{ts} | ${close:,.2f} | {rsi_str} | {bb_str} | {ema20_str} | {volume:,.0f}")
     
     return "\n".join(lines)
 

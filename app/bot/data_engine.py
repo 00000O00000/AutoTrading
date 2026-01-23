@@ -362,16 +362,16 @@ class DataEngine:
             sections.append("")
             sections.append(format_indicator_summary(asset.indicators))
             
-            # 添加多时间周期 K 线数据 (按照 Project Plan 6.1)
-            # 输出限制: 1D=30, 1H=24, 15m=16, 1m=10 以控制 Token
+            # 添加多时间周期 K 线数据
+            # 输出 50 根 K 线给 AI
             if asset.ohlcv_1d:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1d, '1D', limit=30))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1d, '1D', limit=50))
             if asset.ohlcv_1h:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1h, '1H', limit=24))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1h, '1H', limit=50))
             if asset.ohlcv_15m:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_15m, '15m', limit=16))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_15m, '15m', limit=50))
             if asset.ohlcv_1m:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1m, '1m', limit=10))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1m, '1m', limit=50))
             
             # 添加订单簿和资金费率信息
             sections.append(f"  OrderBook: Imbalance {asset.order_book.bid_ask_imbalance:+.2f}|Spread ${asset.order_book.spread:.4f}")
