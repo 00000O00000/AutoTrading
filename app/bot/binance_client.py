@@ -381,16 +381,53 @@ class BinanceClient:
         # 注意: 即使传递了 symbols，某些交易所也可能返回所有并在本地过滤
         positions = self.exchange.fetch_positions(symbols)
         
+        # 从账户 API 获取杠杆信息（因为 positionRisk 不返回 leverage）
+        leverage_map = self._fetch_leverage_map()
+        
         # 仅过滤活跃持仓
         active = []
         for pos in positions:
             contracts = float(pos.get('contracts', 0))
             if contracts != 0:
-                active.append(self._format_position(pos))
+                active.append(self._format_position(pos, leverage_map))
         
         return active
+    
+    def _fetch_leverage_map(self) -> Dict[str, int]:
+        """
+        从账户 API 获取各交易对的杠杆设置。
         
-    def _format_position(self, pos: Dict) -> Dict:
+        Returns:
+            Dict 交易对 -> 杠杆倍数
+        """
+        try:
+            # 使用 CCXT 的底层方法获取账户信息
+            account = self.exchange.fapiPrivateV2GetAccount()
+            leverage_map = {}
+            
+            # 从 positions 数组中提取杠杆
+            for pos in account.get('positions', []):
+                symbol = pos.get('symbol', '')
+                leverage = pos.get('leverage')
+                if symbol and leverage:
+                    # 转换为 CCXT 格式：BTCUSDT -> BTC/USDT
+                    ccxt_symbol = self._binance_to_ccxt_symbol(symbol)
+                    leverage_map[ccxt_symbol] = int(leverage)
+            
+            return leverage_map
+        except Exception as e:
+            logger.warning("无法获取杠杆信息: %s", e)
+            return {}
+    
+    def _binance_to_ccxt_symbol(self, binance_symbol: str) -> str:
+        """将 Binance 格式 (BTCUSDT) 转换为 CCXT 格式 (BTC/USDT)。"""
+        # 简单处理：假设都是 USDT 结尾
+        if binance_symbol.endswith('USDT'):
+            base = binance_symbol[:-4]
+            return f"{base}/USDT"
+        return binance_symbol
+        
+    def _format_position(self, pos: Dict, leverage_map: Dict[str, int] = None) -> Dict:
         """格式化单个持仓数据 (双向持仓模式)。"""
         # 移除可能的后缀，如 DOGE/USDT:USDT -> DOGE/USDT
         raw_symbol = pos['symbol']
@@ -410,12 +447,10 @@ class BinanceClient:
             position_side = 'LONG' if float(pos.get('contracts', 0)) > 0 else 'SHORT'
             logger.warning("无法从 CCXT 获取 side 字段，使用 contracts 符号判断: %s", position_side)
         
-        # 获取杠杆：CCXT 可能在顶层或在 info 字段中
-        leverage = pos.get('leverage')
-        if leverage is None and 'info' in pos:
-            # 从原始 Binance API 响应中获取
-            leverage = pos['info'].get('leverage')
-        leverage = int(float(leverage)) if leverage else 1
+        # 从 leverage_map 获取杠杆
+        leverage = 1
+        if leverage_map:
+            leverage = leverage_map.get(symbol, 1)
         
         return {
             'symbol': symbol,  # 标准化 DOMAIN/QUOTE
