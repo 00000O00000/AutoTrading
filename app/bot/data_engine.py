@@ -363,15 +363,15 @@ class DataEngine:
             sections.append(format_indicator_summary(asset.indicators))
             
             # 添加多时间周期 K 线数据
-            # 输出 50 根 K 线给 AI
+            # 输出 100 根 K 线给 AI
             if asset.ohlcv_1d:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1d, '1D', limit=50))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1d, '1D', limit=100))
             if asset.ohlcv_1h:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1h, '1H', limit=50))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1h, '1H', limit=100))
             if asset.ohlcv_15m:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_15m, '15m', limit=50))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_15m, '15m', limit=100))
             if asset.ohlcv_1m:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1m, '1m', limit=50))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1m, '1m', limit=100))
             
             # 添加订单簿和资金费率信息
             sections.append(f"  OrderBook: Imbalance {asset.order_book.bid_ask_imbalance:+.2f}|Spread ${asset.order_book.spread:.4f}")
