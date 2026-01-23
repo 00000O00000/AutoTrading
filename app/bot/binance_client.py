@@ -410,6 +410,13 @@ class BinanceClient:
             position_side = 'LONG' if float(pos.get('contracts', 0)) > 0 else 'SHORT'
             logger.warning("无法从 CCXT 获取 side 字段，使用 contracts 符号判断: %s", position_side)
         
+        # 获取杠杆：CCXT 可能在顶层或在 info 字段中
+        leverage = pos.get('leverage')
+        if leverage is None and 'info' in pos:
+            # 从原始 Binance API 响应中获取
+            leverage = pos['info'].get('leverage')
+        leverage = int(float(leverage)) if leverage else 1
+        
         return {
             'symbol': symbol,  # 标准化 DOMAIN/QUOTE
             'side': position_side,
@@ -419,7 +426,7 @@ class BinanceClient:
             'mark_price': pos.get('markPrice', 0),
             'unrealized_pnl': pos.get('unrealizedPnl', 0),
             'percentage': pos.get('percentage', 0),
-            'leverage': pos.get('leverage', 1)
+            'leverage': leverage
         }
     
     # =========================================================================
