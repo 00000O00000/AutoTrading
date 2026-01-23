@@ -73,7 +73,7 @@ class TradeExecutor:
         
         Args:
             symbol: 交易对 (例如 'BTC/USDT')
-            side: 'BUY' (做多) 或 'SELL' (做空)
+            side: 'LONG' (做多) 或 'SHORT' (做空) - 持仓方向
             amount_usdt: 交易金额 (USDT)
             leverage: 杠杆倍数 (1-125), None 表示保持当前
             stop_loss_price: 可选止损触发价格
@@ -84,19 +84,26 @@ class TradeExecutor:
         """
         side = side.upper()
         
+        # 兼容性处理：支持 BUY/SELL 和 LONG/SHORT 两种格式
+        # 统一转换为 position_side (LONG/SHORT) 和 order_side (BUY/SELL)
+        if side in ('LONG', 'BUY'):
+            position_side = 'LONG'
+            order_side = 'BUY'
+        elif side in ('SHORT', 'SELL'):
+            position_side = 'SHORT'
+            order_side = 'SELL'
+        else:
+            raise ValueError(f"无效方向: {side}，应为 LONG/SHORT 或 BUY/SELL")
+        
         logger.info(
             "正在开仓: %s %s %.2f USDT (杠杆: %s, 止损: %s, 止盈: %s)",
-            side, symbol, amount_usdt, 
+            position_side, symbol, amount_usdt, 
             f"{leverage}x" if leverage else 'default',
             stop_loss_price or 'none',
             take_profit_price or 'none'
         )
         
         try:
-            # 验证方向
-            if side not in ('BUY', 'SELL'):
-                raise ValueError(f"无效方向: {side}")
-            
             # 如果指定了则设置杠杆
             if leverage and leverage > 0:
                 try:
@@ -134,18 +141,14 @@ class TradeExecutor:
             if quantity <= 0:
                 raise ValueError(f"{amount_usdt} USDT 计算出的数量为 0")
             
-            # 确定 positionSide (双向持仓模式必需)
-            # BUY 开多 -> LONG, SELL 开空 -> SHORT
-            position_side = 'LONG' if side == 'BUY' else 'SHORT'
-            
-            # 执行市价单
-            order = self.client.create_market_order(symbol, side, quantity, position_side)
+            # 执行市价单 (双向持仓模式：使用 order_side 作为订单方向，position_side 作为持仓方向)
+            order = self.client.create_market_order(symbol, order_side, quantity, position_side)
             
             # 获取成交价
             executed_price = float(order.get('average', 0) or order.get('price', 0))
             
             # 止盈止損单的相反方向，但 positionSide 保持与仓位一致
-            opposite_side = 'SELL' if side == 'BUY' else 'BUY'
+            opposite_side = 'SELL' if order_side == 'BUY' else 'BUY'
             
             sl_failed = False
             tp_failed = False

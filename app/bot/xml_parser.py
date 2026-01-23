@@ -204,7 +204,7 @@ def validate_tool_call(tool_data: Dict[str, Any]) -> ToolCall:
         if side not in tool_def['side_values']:
             raise ToolValidationError(
                 name,
-                f"Invalid side '{side}'. Must be BUY or SELL"
+                f"Invalid side '{side}'. Must be LONG or SHORT"
             )
         # 将方向规范化为大写
         args['side'] = side

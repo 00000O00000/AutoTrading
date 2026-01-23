@@ -76,6 +76,7 @@ class BinanceClient:
                 'defaultType': 'future',
                 'adjustForTimeDifference': False,  # 我们将手动且激进地处理此问题
                 'recvWindow': 60000,  # 允许 60s 偏差（我们将故意滞后）
+                'hedgeMode': True,  # 启用双向持仓模式 (同时支持 LONG 和 SHORT 仓位)
             }
         })
         

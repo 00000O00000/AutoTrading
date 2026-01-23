@@ -62,7 +62,7 @@ SYSTEM_PROMPT = """你是由 OpenNOF1 开发的精英量化交易 AI，在币安
 ### trade_in - 开仓或加仓
 Args:
 - target: string (例如 "ETH/USDT")
-- side: "BUY" 或 "SELL"
+- side: "LONG" 或 "SHORT"
 - count_usdt: string (USDT 金额, 例如 "200")
 - leverage: string (可选，杠杆倍数 1-125，例如 "10")
 - stop_loss_price: string (可选，止损触发价)
@@ -75,7 +75,7 @@ Example:
 {{
     "name": "trade_in",
     "info": "MACD 金叉，10倍杠杆做多 ETH，止损3100，止盈3500",
-    "args": {{"target": "ETH/USDT", "side": "BUY", "count_usdt": "200", "leverage": "10", "stop_loss_price": "3100", "take_profit_price": "3500"}}
+    "args": {{"target": "ETH/USDT", "side": "LONG", "count_usdt": "200", "leverage": "10", "stop_loss_price": "3100", "take_profit_price": "3500"}}
 }}
 </tooluse>
 
@@ -243,7 +243,7 @@ TOOL_DEFINITIONS = {
         "description": "开仓或加仓（支持杠杆和止盈止损）",
         "required_args": ["target", "side", "count_usdt"],
         "optional_args": ["leverage", "stop_loss_price", "take_profit_price"],
-        "side_values": ["BUY", "SELL"],
+        "side_values": ["LONG", "SHORT"],
         "leverage_range": (LEVERAGE_MIN, LEVERAGE_MAX)
     },
     "close_position": {

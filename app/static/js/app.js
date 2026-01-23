@@ -560,8 +560,8 @@ function renderDecisionGroup(group) {
     // 工具调用卡片
     let toolsHtml = '';
     group.tools.forEach((d, idx) => {
-        const actionClass = d.action === 'BUY' ? 'buy' : 
-                           d.action === 'SELL' || d.action === 'CLOSE' ? 'sell' : '';
+        const actionClass = (d.action === 'BUY' || d.action === 'LONG') ? 'buy' : 
+                           (d.action === 'SELL' || d.action === 'SHORT' || d.action === 'CLOSE') ? 'sell' : '';
         const toolName = d.tool_name || 'unknown';
         const displayName = TOOL_NAMES[toolName] || toolName.toUpperCase();
         const uniqueId = `${group.key}-${idx}`.replace(/[^a-zA-Z0-9-]/g, '-');
@@ -941,8 +941,8 @@ async function fetchRecords() {
                           record.status === 'FAILED' ? '✗' : '';
         
         // 根据操作类型确定节点颜色
-        const actionClass = record.action === 'BUY' ? 'buy' : 
-                          record.action === 'SELL' || record.action === 'CLOSE' ? 'sell' : 
+        const actionClass = (record.action === 'BUY' || record.action === 'LONG') ? 'buy' : 
+                          (record.action === 'SELL' || record.action === 'SHORT' || record.action === 'CLOSE') ? 'sell' : 
                           status;
         
         html += `

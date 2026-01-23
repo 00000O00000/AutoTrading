@@ -120,7 +120,7 @@ class TradeDecision(db.Model):
     
     # 交易详情
     symbol = db.Column(db.String(20), nullable=False)
-    action = db.Column(db.String(20), nullable=False)  # BUY, SELL, CLOSE, HOLD
+    action = db.Column(db.String(20), nullable=False)  # LONG, SHORT, CLOSE, HOLD, MEMORY, etc.
     
     # 前端显示信息
     display_info = db.Column(db.String(255))

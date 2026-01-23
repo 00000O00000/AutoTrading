@@ -151,7 +151,7 @@ class TradingEngine:
     
     # 工具动作映射 (表示法则: 将知识折叠进数据)
     TOOL_ACTION_MAP = {
-        "trade_in": lambda args: (args.get('side', 'BUY'), args.get('target', 'UNKNOWN')),
+        "trade_in": lambda args: (args.get('side', 'LONG'), args.get('target', 'UNKNOWN')),
         "close_position": lambda args: ("CLOSE", args.get('target', 'UNKNOWN')),
         "update_memory": lambda args: ("MEMORY", "SYSTEM"),
         "set_leverage": lambda args: ("LEVERAGE", args.get('target', 'UNKNOWN')),
@@ -226,7 +226,7 @@ class TradingEngine:
             
             elif tool_call.name == "trade_in":
                 symbol = tool_call.args.get('target', '')
-                side = tool_call.args.get('side', 'BUY')
+                side = tool_call.args.get('side', 'LONG')
                 amount_usdt = float(tool_call.args.get('count_usdt', 0))
                 
                 # 新增参数
