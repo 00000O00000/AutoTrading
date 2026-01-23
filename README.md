@@ -24,22 +24,27 @@
 创建 `.env` 文件：
 
 ```env
-# 币安 API (必需)
-BINANCE_API_KEY=your_binance_api_key
-BINANCE_API_SECRET=your_binance_api_secret
+# 币安账户
+BINANCE_API_KEY=your_api_key_here
+BINANCE_API_SECRET=your_api_secret_here
 
-# AI API (必需)
-DEEPSEEK_API_KEY=your_api_key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-chat
+# AI 提供商 1 (必需)
+AI_1_API_KEY=your_api_key_here
+AI_1_BASE_URL=https://api.deepseek.com/v1
+AI_1_MODEL=deepseek-chat
 
-# 可选配置
-TRADING_INTERVAL_MINUTES=5
-SECRET_KEY=your_secret_key
+# AI 提供商 2 (可选，故障转移)
+# AI_2_API_KEY=your_fallback_api_key
+# AI_2_BASE_URL=https://api.openai.com/v1
+# AI_2_MODEL=gpt-4o-mini
 
-# 控制台密码 (仅在设置页使用)
+# 控制台密码 (必需，仅在设置页使用)
 CONSOLE_PASSWORD=your_secure_password_here
 ```
+
+>
+> 提供商1推荐低价渠道，提供商2推荐稳定渠道
+>
 
 ### 币安账户准备
 
