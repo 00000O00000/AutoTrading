@@ -180,6 +180,65 @@ class AIAgent:
             usage=usage
         )
     
+    def analyze_with_messages(
+        self,
+        messages: list,
+        temperature: float = 0.7,
+        max_tokens: int = 2000
+    ) -> AIResponse:
+        """
+        使用完整消息历史进行分析（用于错误重试）。
+        
+        Args:
+            messages: 完整的消息历史列表 [{"role": "...", "content": "..."}]
+            temperature: 模型温度
+            max_tokens: 最大响应 token 数
+            
+        Returns:
+            AIResponse 包含解析后的工具调用
+        """
+        if not self.api_key:
+            raise AIAgentError("未配置 AI API 密钥")
+        
+        logger.info("正在发送带消息历史的请求 (%d 条消息)", len(messages))
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+        except Exception as e:
+            logger.error("AI API 错误: %s", e)
+            raise AIAgentError(f"API 请求失败: {e}")
+        
+        if not response.choices:
+            raise AIAgentError("AI 响应无效: choices 为空")
+        
+        raw_response = response.choices[0].message.content or ""
+        
+        logger.info("收到响应 (%d 字符)", len(raw_response))
+        
+        tool_calls = parse_tool_calls(raw_response)
+        
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            }
+        else:
+            usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        
+        return AIResponse(
+            raw_response=raw_response,
+            tool_calls=tool_calls,
+            has_memory_update=has_memory_update(tool_calls),
+            model=response.model,
+            usage=usage
+        )
+    
     def test_connection(self) -> bool:
         """
         使用最小请求测试 API 连接。

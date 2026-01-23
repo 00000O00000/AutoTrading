@@ -193,3 +193,90 @@ class EquitySnapshot(db.Model):
     
     def __repr__(self):
         return f'<EquitySnapshot {self.timestamp} equity={self.total_equity}>'
+
+
+class PendingOrder(db.Model):
+    """
+    挂单/条件委托单追踪。
+    
+    记录止损/止盈等条件委托单，使 AI 能够：
+    - 查看当前所有挂单
+    - 通过 ID 精确取消单个订单
+    
+    设计原则 (Unix 哲学):
+    - 透明法则: 让挂单状态可见
+    - 表示法则: 将订单知识折叠进数据
+    """
+    __tablename__ = 'pending_order'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # 订单标识
+    symbol = db.Column(db.String(20), nullable=False, index=True)
+    order_id = db.Column(db.String(50), nullable=False)  # orderId 或 algoId
+    
+    # 订单类型
+    order_type = db.Column(db.String(30))  # STOP_MARKET, TAKE_PROFIT_MARKET
+    side = db.Column(db.String(10))  # BUY, SELL
+    
+    # 订单详情
+    quantity = db.Column(db.Float)
+    trigger_price = db.Column(db.Float)
+    
+    # 是否为算法订单 (止损/止盈使用 algoId)
+    is_algo = db.Column(db.Boolean, default=True)
+    
+    # 时间戳
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    # 状态: NEW, CANCELLED, FILLED, EXPIRED
+    status = db.Column(db.String(20), default='NEW')
+    
+    @classmethod
+    def add_order(cls, symbol: str, order_id: str, order_type: str, 
+                  side: str, quantity: float, trigger_price: float,
+                  is_algo: bool = True):
+        """添加新的挂单记录。"""
+        order = cls(
+            symbol=symbol,
+            order_id=order_id,
+            order_type=order_type,
+            side=side,
+            quantity=quantity,
+            trigger_price=trigger_price,
+            is_algo=is_algo
+        )
+        db.session.add(order)
+        db.session.commit()
+        return order
+    
+    @classmethod
+    def get_open_orders(cls, symbol: str = None):
+        """获取所有状态为 NEW 的挂单。"""
+        query = cls.query.filter_by(status='NEW')
+        if symbol:
+            query = query.filter_by(symbol=symbol)
+        return query.order_by(cls.created_at.desc()).all()
+    
+    @classmethod
+    def mark_cancelled(cls, order_id: str):
+        """标记订单为已取消。"""
+        order = cls.query.filter_by(order_id=order_id).first()
+        if order:
+            order.status = 'CANCELLED'
+            db.session.commit()
+        return order
+    
+    @classmethod
+    def cleanup_old_orders(cls, hours: int = 24):
+        """清理超过指定小时数的旧订单记录。"""
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cls.query.filter(
+            cls.created_at < cutoff,
+            cls.status != 'NEW'
+        ).delete()
+        db.session.commit()
+    
+    def __repr__(self):
+        return f'<PendingOrder {self.symbol} {self.order_type} ID={self.order_id}>'
+

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}设置 - OpenNOF1{% endblock %}
+{% block title %}OPENNOF1 - 全自动货币交易系统{% endblock %}
 
 {% block content %}
 <div class="settings-page">
@@ -23,6 +23,7 @@
 
             <div class="mt-2">
                 <button id="btn-run-once" class="btn">运行单次循环</button>
+                <button id="btn-close-all" class="btn btn-danger" style="margin-left: 8px;">⚠️ 一键全平</button>
             </div>
         </div>
     </section>
@@ -150,6 +151,41 @@
             } else {
                 alert('循环失败: ' + (data.error || '未知错误'));
             }
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    });
+
+    document.getElementById('btn-close-all').addEventListener('click', async (e) => {
+        // 多重确认防止误操作
+        if (!confirm('⚠️ 确定要一键全平吗？\n\n这将会：\n1. 取消所有挂单（止损/止盈）\n2. 以市价平掉所有持仓\n\n此操作不可撤销！')) {
+            return;
+        }
+        if (!confirm('再次确认：真的要平掉所有仓位吗？')) {
+            return;
+        }
+        
+        const btn = e.target;
+        const originalText = btn.textContent;
+        btn.textContent = '正在平仓...';
+        btn.disabled = true;
+        
+        try {
+            const res = await fetch('/api/close-all', { method: 'POST' });
+            const data = await res.json();
+            
+            if (data.success) {
+                alert(`✅ ${data.message}\n\n已平仓: ${data.results.closed.length} 个\n已撤单: ${data.results.cancelled.length} 个`);
+            } else {
+                let msg = `平仓完成，但有错误：\n${data.message}`;
+                if (data.results && data.results.errors.length > 0) {
+                    msg += '\n\n错误详情：\n' + data.results.errors.join('\n');
+                }
+                alert(msg);
+            }
+        } catch (e) {
+            alert('一键全平失败: ' + e.message);
         } finally {
             btn.textContent = originalText;
             btn.disabled = false;

@@ -60,6 +60,9 @@ class MarketContext:
     account_balance: Optional[Dict[str, float]] = None
     positions: Optional[List[Dict]] = None
     
+    # 挂单信息 (止损/止盈条件委托单)
+    pending_orders: Optional[List[Dict]] = None
+    
     # Memory whiteboard
     memory_content: str = ""
 
@@ -246,6 +249,39 @@ class DataEngine:
             logger.debug("Private endpoints not available: %s", e)
             return None, None
     
+    def _fetch_pending_orders(self) -> List[Dict]:
+        """
+        获取所有挂单（算法订单：止损/止盈）。
+        
+        使用币安私有 API 直接获取，确保数据最新。
+        遵循透明法则：让 AI 能看到所有待执行的条件委托。
+        
+        Returns:
+            挂单列表，每个订单包含 symbol, order_id, type, side, trigger_price
+        """
+        try:
+            pending = []
+            for symbol in self.symbols:
+                binance_symbol = symbol.replace('/', '')
+                # 获取算法订单 (止损/止盈)
+                algo_orders = self.binance.exchange.fapiPrivateGetOpenAlgoOrders({
+                    'symbol': binance_symbol
+                })
+                for order in algo_orders:
+                    pending.append({
+                        'symbol': symbol,
+                        'order_id': order.get('algoId'),
+                        'type': order.get('orderType'),  # STOP_MARKET, TAKE_PROFIT_MARKET
+                        'side': order.get('side'),
+                        'quantity': float(order.get('quantity', 0)),
+                        'trigger_price': float(order.get('triggerPrice', 0)),
+                        'is_algo': True
+                    })
+            return pending
+        except Exception as e:
+            logger.debug("无法获取挂单: %s", e)
+            return []
+    
     def aggregate(self, memory_content: str = "") -> MarketContext:
         """
         将所有数据源聚合为完整的市场上下文。
@@ -280,6 +316,9 @@ class DataEngine:
         # 获取账户数据
         balance, positions = self.fetch_account_data()
         
+        # 获取所有挂单（算法订单：止损/止盈）
+        pending_orders = self._fetch_pending_orders()
+        
         elapsed = time.time() - start_time
         logger.info("数据聚合完成 (%.1fs, %d 个资产)", elapsed, len(assets))
         
@@ -289,6 +328,7 @@ class DataEngine:
             assets=assets,
             account_balance=balance,
             positions=positions,
+            pending_orders=pending_orders,
             memory_content=memory_content
         )
     
@@ -354,6 +394,17 @@ class DataEngine:
                     )
             else:
                 sections.append("No open positions.")
+            
+            # 挂单信息 (止损/止盈条件委托)
+            if context.pending_orders:
+                sections.append("")
+                sections.append("Pending Orders (SL/TP):")
+                for order in context.pending_orders:
+                    order_type = "SL" if "STOP" in order.get('type', '') else "TP"
+                    sections.append(
+                        f"  - {order['symbol']}: {order_type} {order['side']} "
+                        f"@ ${order['trigger_price']:.4f} (ID: {order['order_id']})"
+                    )
         
         # 记忆白板
         if context.memory_content:

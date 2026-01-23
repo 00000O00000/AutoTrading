@@ -7,8 +7,15 @@
 - **周期性决策**: 每5分钟一次的“**数据聚合 ->AI决策 -> 自动化执行**”流程。
 - **多币种监控**:  AI同时监控5个币种的**U本位合约**，包括：BTC/ETH/BNB/SOL/DOGE。
 - **多指标辅助**: 同时提供多种指标给AI辅助决策，包括：RSI/MACD/布林带/VWAP/ATR/市场宽度等。
-- **Web仪表盘**: 附带简单控制功能的美观WebUI，可以直接在网页端操作后台。
+- **Web仪表盘**: 附带简单控制功能的美观WebUI，可以在输入密码后，在网页端操作后台。
 - **类MCP解析**: 改进版MCP格式的工具调用，任何模型均可集成，不依赖模型的 `Function Call` 能力。
+
+### 画廊
+
+![系统展示](./img/show1.png)
+
+
+![控制台展示](./img/show2.png)
 
 ## 快速开始
 
@@ -34,6 +41,17 @@ SECRET_KEY=your_secret_key
 CONSOLE_PASSWORD=your_secure_password_here
 ```
 
+### 币安账户准备
+
+本项目基于币安U本位合约交易，请按如下步骤设置账户：
+0、开始之前，请确保账户已开通合约交易
+1、打开BTCUSDT合约的行情页
+2、右上角设置 - 账户模式 - 经典交易
+3、右上角设置 - 仓位模式 - 单向持仓
+4、右上角设置 - 资产模式 - 单币保证金模式
+5、右上角个人 - API管理 - 创建API - 编辑API权限 - 允许读取、合约
+6、复制 ID 和 Secret 粘贴到 `.env` 文件中。
+
 ### 启动
 
 ```bash
@@ -51,7 +69,7 @@ docker-compose down
 清除数据库：
 
 ```bash
-docker-compose down -v
+docker volume rm autotrading_pg_data
 ```
 
 ## 安全机制
@@ -94,13 +112,6 @@ AutoTrading/
 └── requirements.txt
 ```
 
-## 其他指令
-
-删除数据卷
-
-```
-docker volume rm autotrading_pg_data
-```
 
 ## 技术栈
 
@@ -288,6 +299,9 @@ BTC 主导行情，山寨币跟随力度弱。
 
 本项目仅供学习研究使用。加密货币交易存在高风险，使用本系统进行实盘交易造成的任何损失由用户自行承担。
 
+联系方式：
+1528518618@qq.com
+yushu200403@outlook.com
 
 ## License
 

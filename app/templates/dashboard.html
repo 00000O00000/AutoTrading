@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}仪表盘 - OpenNOF1{% endblock %}
+{% block title %}OPENNOF1 - 全自动货币交易系统{% endblock %}
 
 {% block content %}
 <div class="dashboard-grid">
@@ -86,12 +86,13 @@
         </div>
     </div>
 
-    <!-- 右侧面板: 对话/持仓/设置 -->
+    <!-- 右侧面板: 对话/持仓/记录/设置 -->
     <div class="feed-section">
         <!-- 标签页头部 -->
         <div class="tabs-header">
             <button class="tab-btn active" data-tab="chat">对话</button>
             <button class="tab-btn" data-tab="positions">持仓</button>
+            <button class="tab-btn" data-tab="records">记录</button>
             <button class="tab-btn" data-tab="settings">设置</button>
         </div>
 
@@ -124,6 +125,13 @@
             </div>
         </div>
 
+        <!-- 记录标签 - 时间轴 -->
+        <div id="tab-records" class="tab-content">
+            <div class="records-container" id="records-timeline">
+                <div class="text-muted text-center">加载中...</div>
+            </div>
+        </div>
+
         <!-- 设置标签 -->
         <div id="tab-settings" class="tab-content">
             <!-- 密码验证区域 (未验证时显示) -->
@@ -147,6 +155,10 @@
                         <div class="control-buttons">
                             <button id="btn-start" class="btn btn-success">启动</button>
                             <button id="btn-stop" class="btn btn-danger" disabled>停止</button>
+                        </div>
+                        <div class="control-buttons" style="margin-top: 0.5rem;">
+                            <button id="btn-run-once" class="btn">运行单次</button>
+                            <button id="btn-close-all" class="btn">一键全平</button>
                         </div>
                     </div>
                 </div>

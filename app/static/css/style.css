@@ -12,8 +12,13 @@
 /* Component styles */
 @import 'components.css';
 
-/* Dashboard specific styles */
-@import 'dashboard.css';
+/* Dashboard modular styles */
+@import 'layout.css';
+@import 'tabs.css';
+@import 'chat.css';
+@import 'settings.css';
+@import 'modal.css';
+@import 'dashboard-responsive.css';
 
 /* Mobile responsiveness - Must be last to override */
 @import 'mobile.css';

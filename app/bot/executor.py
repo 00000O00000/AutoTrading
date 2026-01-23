@@ -31,6 +31,9 @@ class ExecutionResult:
     error: Optional[str] = None
     sl_failed: bool = False  # 止损设置失败标志
     tp_failed: bool = False  # 止盈设置失败标志
+    # 订单 ID 追踪 (算法订单使用 algoId)
+    sl_order_id: Optional[str] = None
+    tp_order_id: Optional[str] = None
 
 
 class TradeExecutor:
@@ -141,14 +144,17 @@ class TradeExecutor:
             
             sl_failed = False
             tp_failed = False
+            sl_order_id = None
+            tp_order_id = None
             
             # 若指定则设置止损 (市价止损单)
             if stop_loss_price and stop_loss_price > 0:
                 try:
-                    self.client.create_stop_loss_order(
+                    sl_order = self.client.create_stop_loss_order(
                         symbol, opposite_side, quantity, stop_loss_price
                     )
-                    logger.info("止损单已设置 @ %.2f", stop_loss_price)
+                    sl_order_id = sl_order.get('id')
+                    logger.info("止损单已设置 @ %.2f (ID: %s)", stop_loss_price, sl_order_id)
                 except Exception as e:
                     logger.warning("无法设置止损: %s", e)
                     sl_failed = True
@@ -156,10 +162,11 @@ class TradeExecutor:
             # 若指定则设置止盈 (市价止盈单)
             if take_profit_price and take_profit_price > 0:
                 try:
-                    self.client.create_take_profit_order(
+                    tp_order = self.client.create_take_profit_order(
                         symbol, opposite_side, quantity, take_profit_price
                     )
-                    logger.info("止盈单已设置 @ %.2f", take_profit_price)
+                    tp_order_id = tp_order.get('id')
+                    logger.info("止盈单已设置 @ %.2f (ID: %s)", take_profit_price, tp_order_id)
                 except Exception as e:
                     logger.warning("无法设置止盈: %s", e)
                     tp_failed = True
@@ -177,7 +184,9 @@ class TradeExecutor:
                 quantity=quantity,
                 executed_price=executed_price,
                 sl_failed=sl_failed,
-                tp_failed=tp_failed
+                tp_failed=tp_failed,
+                sl_order_id=sl_order_id,
+                tp_order_id=tp_order_id
             )
             
         except (InsufficientBalanceError, ValueError) as e:
@@ -251,24 +260,24 @@ class TradeExecutor:
             # 确定平仓方向 (与持仓相反)
             close_side = 'SELL' if position_side == 'LONG' else 'BUY'
             
+            # 如果是全平仓，先取消所有挂单，防止残留或干扰
+            # 这是一个更安全的操作顺序：
+            # 1. 撤单 -> 确保没有由旧策略产生的挂单
+            # 2. 平仓 -> 安全退出市场
+            if percentage == 100:
+                try:
+                    self.client.cancel_all_orders(symbol)
+                    logger.info("全平仓前已撤销 %s 所有挂单", symbol)
+                except Exception as e:
+                    logger.warning("平仓前撤单失败 (继续尝试平仓): %s", e)
+            else:
+                # 部分平仓提醒
+                logger.info("部分平仓 %d%% - 现有止损订单保持有效", percentage)
+
             # 执行平仓单
             order = self.client.create_market_order(symbol, close_side, close_quantity)
             
             executed_price = float(order.get('average', 0) or order.get('price', 0))
-            
-            # 全平仓时取消该币种现有的止损单 (在平仓成功后执行)
-            # For partial closes, existing stop-loss will remain but may be oversized
-            if percentage == 100:
-                try:
-                    self.client.cancel_all_orders(symbol)
-                except Exception as e:
-                    logger.warning("取消订单失败: %s", e)
-            else:
-                # Log warning about existing stop-loss orders
-                logger.info(
-                    "部分平仓 %d%% - 现有止损订单保持有效",
-                    percentage
-                )
             
             logger.info(
                 "仓位已平仓: %s %s %.8f @ %.4f",
@@ -436,3 +445,91 @@ class TradeExecutor:
                 symbol=symbol,
                 error=str(e)
             )
+    
+    def cancel_orders(
+        self,
+        symbol: str,
+        order_type: str = "all"
+    ) -> ExecutionResult:
+        """
+        取消指定交易对的挂单。
+        
+        Args:
+            symbol: 交易对
+            order_type: 'stop_loss', 'take_profit', 或 'all'
+            
+        Returns:
+            ExecutionResult
+        """
+        logger.info(
+            "正在取消挂单: %s (类型: %s)",
+            symbol, order_type
+        )
+        
+        try:
+            cancelled = self.client.cancel_orders_by_type(symbol, order_type)
+            cancelled_count = len(cancelled) if cancelled else 0
+            
+            logger.info("已取消 %d 个 %s 挂单", cancelled_count, symbol)
+            
+            return ExecutionResult(
+                success=True,
+                symbol=symbol,
+                side=f"CANCEL_{order_type.upper()}",
+                quantity=float(cancelled_count)
+            )
+            
+        except Exception as e:
+            logger.error("取消挂单失败: %s", e)
+            return ExecutionResult(
+                success=False,
+                symbol=symbol,
+                error=str(e)
+            )
+    
+    def cancel_order_by_id(
+        self,
+        symbol: str,
+        order_id: str
+    ) -> ExecutionResult:
+        """
+        根据订单 ID 取消单个订单。
+        
+        Args:
+            symbol: 交易对
+            order_id: 订单 ID
+            
+        Returns:
+            ExecutionResult
+        """
+        logger.info(
+            "正在取消订单: %s (ID: %s)",
+            symbol, order_id
+        )
+        
+        try:
+            result = self.client.cancel_order_by_id(symbol, order_id)
+            
+            if result.get('success'):
+                logger.info("已取消订单: %s", order_id)
+                return ExecutionResult(
+                    success=True,
+                    symbol=symbol,
+                    side=f"CANCEL_ORDER_{result.get('type', 'unknown').upper()}",
+                    order_id=order_id
+                )
+            else:
+                return ExecutionResult(
+                    success=False,
+                    symbol=symbol,
+                    error=result.get('error', '未知错误')
+                )
+            
+        except Exception as e:
+            logger.error("取消订单失败: %s", e)
+            return ExecutionResult(
+                success=False,
+                symbol=symbol,
+                error=str(e)
+            )
+

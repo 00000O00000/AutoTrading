@@ -1,0 +1,553 @@
+/* 
+ * OpenNOF1 - Dashboard Responsive Styles
+ * 移动端完全重新设计的布局
+ */
+
+/* ============================================
+   平板布局 (577px - 768px)
+   保持双栏但调整比例
+   ============================================ */
+@media (max-width: 768px) and (min-width: 577px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr 280px;
+    }
+    
+    /* Ticker 水平滚动 */
+    .ticker-row {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    
+    .ticker-row::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .ticker-item {
+        min-width: 130px;
+        flex-shrink: 0;
+    }
+    
+    .mini-chart {
+        width: 40px !important;
+        height: 20px !important;
+    }
+    
+    /* 账户总览 2列 */
+    .account-overview {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .account-stat {
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .account-stat:nth-last-child(-n+2) {
+        border-bottom: none;
+    }
+}
+
+/* ============================================
+   手机布局 (< 576px)
+   完全重新设计 - 垂直堆叠可滚动
+   ============================================ */
+@media (max-width: 576px) {
+    /* 全局强制 box-sizing 和溢出控制 */
+    *, *::before, *::after {
+        box-sizing: border-box !important;
+    }
+    
+    html {
+        overflow-x: hidden !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+    }
+    
+    body {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Navbar 限制宽度 */
+    .navbar {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 容器改为自动高度 */
+    .container {
+        height: auto !important;
+        min-height: calc(100vh - 45px);
+        width: 100vw !important;
+        max-width: 100vw !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* Dashboard 网格改为单列垂直堆叠 */
+    .dashboard-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: calc(100vh - 45px);
+        width: 100vw !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* ========== 左侧区域 (图表部分) ========== */
+    .chart-section {
+        border-right: none !important;
+        border-bottom: var(--border-width) solid var(--border-color);
+        flex-shrink: 0;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        overflow: hidden !important;
+    }
+    
+    /* Ticker 行 - 水平滚动 */
+    .ticker-row {
+        display: flex !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .ticker-row::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .ticker-item {
+        min-width: 85px;
+        max-width: 100px;
+        flex-shrink: 0;
+        padding: 0.5rem 0.5rem;
+        border-right: 1px solid var(--border-color);
+    }
+    
+    .ticker-item:last-child {
+        border-right: none;
+    }
+    
+    .ticker-symbol {
+        font-size: 0.55rem;
+    }
+    
+    .ticker-price {
+        font-size: 0.8rem;
+    }
+    
+    .ticker-change {
+        font-size: 0.6rem;
+    }
+    
+    /* 隐藏迷你图表 */
+    .mini-chart {
+        display: none !important;
+    }
+    
+    /* 主图表容器 - 固定尺寸，添加内边距避免折线贴边 */
+    .main-chart-container {
+        height: 200px !important;
+        min-height: 200px !important;
+        max-height: 200px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+        position: relative !important;
+        overflow: hidden !important;
+        padding: 0.5rem !important;
+        padding-top: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* Chart.js canvas 强制适应容器 */
+    .main-chart-container canvas,
+    #equityChart {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        display: block !important;
+    }
+    
+    /* 图表头 */
+    .chart-header {
+        top: 0.5rem;
+        left: 0.5rem;
+        padding: 0.3rem 0.5rem;
+        max-width: calc(100vw - 1rem);
+    }
+    
+    .chart-header .label {
+        font-size: 0.5rem;
+    }
+    
+    .chart-header .value {
+        font-size: 0.9rem;
+    }
+    
+    .chart-header .change {
+        font-size: 0.6rem;
+    }
+    
+    /* 账户总览 - 2x2 网格 */
+    .account-overview {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+    }
+    
+    .account-stat {
+        padding: 0.5rem;
+        text-align: center;
+        border-right: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .account-stat:nth-child(2n) {
+        border-right: none;
+    }
+    
+    .account-stat:nth-last-child(-n+2) {
+        border-bottom: none;
+    }
+    
+    .account-stat .label {
+        font-size: 0.55rem;
+    }
+    
+    .account-stat .value {
+        font-size: 0.9rem;
+    }
+    
+    .account-stat .sub {
+        font-size: 0.6rem;
+    }
+    
+    /* ========== 右侧面板 (Feed 部分) ========== */
+    .feed-section {
+        grid-row: auto !important;
+        grid-column: auto !important;
+        flex: 1;
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* 标签页头部 */
+    .tabs-header {
+        flex-shrink: 0;
+    }
+    
+    .tab-btn {
+        font-size: 0.7rem;
+        padding: 0.6rem 0.3rem;
+        font-weight: 600;
+    }
+    
+    /* 标签内容 */
+    .tab-content {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* ========== 对话/决策区域 ========== */
+    .chat-container {
+        padding: 0.5rem;
+        gap: 0.4rem;
+    }
+    
+    .decision-group {
+        margin-bottom: 0.5rem;
+    }
+    
+    .decision-header {
+        padding: 0.4rem 0.5rem;
+    }
+    
+    .decision-time {
+        font-size: 0.6rem;
+    }
+    
+    .ai-reasoning {
+        padding: 0.5rem;
+        font-size: 0.75rem;
+        line-height: 1.4;
+    }
+    
+    .tool-cards {
+        padding: 0.4rem;
+        gap: 0.3rem;
+    }
+    
+    .tool-card-header {
+        padding: 0.35rem 0.5rem;
+    }
+    
+    .tool-badge {
+        font-size: 0.55rem;
+        padding: 0.1rem 0.3rem;
+    }
+    
+    .tool-info {
+        font-size: 0.7rem;
+    }
+    
+    .tool-status {
+        font-size: 0.65rem;
+    }
+    
+    .tool-toggle {
+        font-size: 0.55rem;
+    }
+    
+    .tool-args {
+        padding: 0.4rem;
+        font-size: 0.65rem;
+    }
+    
+    /* ========== 持仓表格 ========== */
+    .positions-container {
+        padding: 0.5rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* 表格响应式 - 改用卡片式布局 */
+    .positions-container .table {
+        display: block;
+        width: 100%;
+    }
+    
+    .positions-container .table thead {
+        display: none;
+    }
+    
+    .positions-container .table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .positions-container .table tr {
+        display: flex;
+        flex-wrap: wrap;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        padding: 0.5rem;
+    }
+    
+    .positions-container .table tr:hover {
+        background: var(--bg-secondary);
+    }
+    
+    .positions-container .table td {
+        border: none;
+        padding: 0.2rem 0.3rem;
+        font-size: 0.75rem;
+    }
+    
+    /* 币种占一行 */
+    .positions-container .table td:first-child {
+        width: 100%;
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-bottom: 0.3rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    /* 剩余 td 均分 */
+    .positions-container .table td:not(:first-child) {
+        width: 25%;
+        text-align: center;
+    }
+    
+    /* 无数据时的单元格 */
+    .positions-container .table td[colspan] {
+        width: 100% !important;
+        text-align: center;
+        background: transparent;
+    }
+    
+    .positions-container .table tr:has(td[colspan]) {
+        background: transparent;
+        border: none;
+    }
+    
+    /* ========== 设置面板 ========== */
+    .settings-auth-container {
+        min-height: 250px;
+        padding: 1rem;
+    }
+    
+    .auth-box {
+        padding: 1.2rem;
+        max-width: 100%;
+    }
+    
+    .auth-icon {
+        font-size: 1.8rem;
+    }
+    
+    .auth-title {
+        font-size: 0.9rem;
+    }
+    
+    .auth-desc {
+        font-size: 0.75rem;
+    }
+    
+    .settings-panel {
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+    
+    .settings-section {
+        margin-bottom: 0;
+    }
+    
+    .settings-section-header {
+        font-size: 0.65rem;
+        padding: 0.35rem 0.5rem;
+    }
+    
+    .settings-section-body {
+        padding: 0.5rem;
+    }
+    
+    .control-buttons {
+        display: flex;
+        flex-direction: row;
+        gap: 0.5rem;
+    }
+    
+    .control-buttons .btn {
+        flex: 1;
+        text-align: center;
+    }
+    
+    .status-row {
+        padding: 0.5rem;
+        font-size: 0.7rem;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+    
+    .status-row .badge {
+        margin-left: 0 !important;
+        margin-top: 0.3rem;
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* 自定义指令文本框 */
+    textarea.form-control {
+        min-height: 80px;
+        font-size: 0.8rem;
+    }
+    
+    /* AI 记忆区域 */
+    #memory-content {
+        max-height: 120px;
+        font-size: 0.7rem !important;
+    }
+    
+    /* ========== 模态框 ========== */
+    .modal-container {
+        width: 95%;
+        max-width: none;
+        margin: 1rem;
+    }
+    
+    .modal-header {
+        padding: 0.6rem 0.75rem;
+    }
+    
+    .modal-title {
+        font-size: 0.8rem;
+    }
+    
+    .modal-body {
+        padding: 1rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .modal-footer {
+        padding: 0.6rem 0.75rem;
+        flex-direction: column-reverse;
+        gap: 0.4rem;
+    }
+    
+    .modal-footer button {
+        width: 100%;
+        min-width: auto;
+    }
+}
+
+/* ============================================
+   极小屏幕 (< 360px)
+   进一步压缩
+   ============================================ */
+@media (max-width: 360px) {
+    .ticker-item {
+        min-width: 75px;
+        padding: 0.4rem 0.5rem;
+    }
+    
+    .ticker-price {
+        font-size: 0.75rem;
+    }
+    
+    .main-chart-container {
+        height: 160px !important;
+        min-height: 160px !important;
+    }
+    
+    .account-stat .value {
+        font-size: 0.8rem;
+    }
+    
+    .tab-btn {
+        font-size: 0.6rem;
+    }
+}
+
+/* ============================================
+   横屏模式
+   ============================================ */
+@media (max-width: 768px) and (orientation: landscape) {
+    .main-chart-container {
+        height: 150px !important;
+        min-height: 150px !important;
+    }
+    
+    .feed-section {
+        min-height: 300px;
+    }
+    
+    .account-overview {
+        grid-template-columns: repeat(4, 1fr) !important;
+    }
+    
+    .account-stat {
+        border-bottom: none !important;
+    }
+    
+    .account-stat:not(:last-child) {
+        border-right: 1px solid var(--border-color);
+    }
+}

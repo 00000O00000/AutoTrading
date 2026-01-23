@@ -138,6 +138,36 @@ Example:
 }}
 </tooluse>
 
+### cancel_orders - 取消挂单
+取消指定交易对的挂单（止损单、止盈单或全部）。
+Args:
+- target: string (例如 "BTC/USDT")
+- order_type: string (可选，"stop_loss", "take_profit", 或 "all"，默认 "all")
+
+Example:
+<tooluse>
+{{
+    "name": "cancel_orders",
+    "info": "取消 BTC 所有挂单",
+    "args": {{"target": "BTC/USDT", "order_type": "all"}}
+}}
+</tooluse>
+
+### cancel_order - 按 ID 取消单个订单
+取消指定订单 ID 的单个挂单。订单 ID 可在挂单列表中查看。
+Args:
+- target: string (例如 "BTC/USDT")
+- order_id: string (订单 ID)
+
+Example:
+<tooluse>
+{{
+    "name": "cancel_order",
+    "info": "取消指定止损单",
+    "args": {{"target": "DOGE/USDT", "order_id": "4000000421156457"}}
+}}
+</tooluse>
+
 
 ### update_memory - 更新记忆白板
 Args:
@@ -253,6 +283,17 @@ TOOL_DEFINITIONS = {
         "required_args": ["target"],
         "optional_args": ["stop_loss_price", "take_profit_price"],
         "requires_one_of": ["stop_loss_price", "take_profit_price"]
+    },
+    "cancel_orders": {
+        "description": "取消挂单（止损/止盈/全部）",
+        "required_args": ["target"],
+        "optional_args": ["order_type"],
+        "order_type_values": ["stop_loss", "take_profit", "all"]
+    },
+    "cancel_order": {
+        "description": "按 ID 取消单个订单",
+        "required_args": ["target", "order_id"],
+        "optional_args": []
     },
     "update_memory": {
         "description": "更新 AI 白板记忆",

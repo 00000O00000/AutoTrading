@@ -1,0 +1,422 @@
+/* 
+ * OpenNOF1 - Chat & Decision Styles
+ * 聊天容器、气泡、MCP调用、决策分组、工具卡片
+ */
+
+/* 聊天容器 */
+.chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* 聊天气泡 - 无阴影 */
+.chat-bubble {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.5rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    animation: slideIn 0.2s ease-out;
+    font-size: 0.75rem;
+}
+
+.chat-bubble.buy {
+    border-left: 3px solid var(--green);
+}
+
+.chat-bubble.sell {
+    border-left: 3px solid var(--red);
+}
+
+/* MCP 工具调用 - 可折叠样式 */
+.mcp-call {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    animation: slideIn 0.2s ease-out;
+}
+
+.mcp-call.buy {
+    border-left: 3px solid var(--green);
+}
+
+.mcp-call.sell {
+    border-left: 3px solid var(--red);
+}
+
+.mcp-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.mcp-header:hover {
+    background: var(--bg-secondary);
+}
+
+.mcp-tool-badge {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    padding: 0.1rem 0.4rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.mcp-info {
+    flex: 1;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+}
+
+.mcp-time {
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+}
+
+.mcp-toggle {
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+}
+
+.mcp-details {
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+}
+
+.mcp-args-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.7rem;
+}
+
+.mcp-args-table td {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.mcp-args-table .arg-key {
+    font-weight: 700;
+    width: 30%;
+    background: var(--bg-primary);
+}
+
+.mcp-args-table .arg-value {
+    font-family: 'JetBrains Mono', monospace;
+    word-break: break-all;
+}
+
+.mcp-status {
+    margin-top: 0.5rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+/* 决策分组样式 - 分析 + 工具调用 */
+.decision-group {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    margin-bottom: 0.75rem;
+    animation: slideIn 0.2s ease-out;
+}
+
+.decision-header {
+    background: var(--bg-secondary);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.decision-time {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+/* AI 分析文本 */
+.ai-reasoning {
+    padding: 0.75rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.ai-reasoning p {
+    margin: 0.25rem 0;
+}
+
+/* 工具调用卡片容器 */
+.tool-cards {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+/* 单个工具调用卡片 */
+.tool-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    font-size: 0.75rem;
+}
+
+.tool-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.tool-card-header:hover {
+    background: var(--bg-primary);
+}
+
+.tool-toggle {
+    color: var(--text-secondary);
+    font-size: 0.6rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* 工具参数展开区域 */
+.tool-args {
+    padding: 0.5rem 0.6rem;
+    padding-left: 1rem;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.7rem;
+    font-family: monospace;
+}
+
+.args-line {
+    margin: 0.2rem 0;
+}
+
+.args-key {
+    color: var(--text-secondary);
+}
+
+.args-value {
+    color: var(--text-primary);
+}
+
+.tool-card.buy {
+    border-left: 3px solid var(--green);
+}
+
+.tool-card.sell {
+    border-left: 3px solid var(--red);
+}
+
+.tool-badge {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    padding: 0.15rem 0.4rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.tool-info {
+    flex: 1;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+}
+
+.tool-status {
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.tool-status.positive {
+    color: var(--green);
+}
+
+.tool-status.negative {
+    color: var(--red);
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-avatar {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.625rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.chat-timestamp {
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+}
+
+.chat-content {
+    font-size: 0.75rem;
+    line-height: 1.3;
+}
+
+.chat-action {
+    align-self: flex-start;
+    font-size: 0.6rem;
+    padding: 0.1rem 0.3rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(5px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   记录时间轴样式
+   ============================================ */
+
+.records-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    padding-left: 1.5rem;
+}
+
+/* 时间轴线 */
+.timeline {
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+}
+
+/* 时间轴项 */
+.timeline-item {
+    position: relative;
+    padding-bottom: 1rem;
+    animation: slideIn 0.3s ease-out;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+/* 时间轴节点 - 黑色圆点 */
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -1.5rem;
+    top: 0.5rem;
+    width: 8px;
+    height: 8px;
+    background: var(--text-primary);
+    border: none;
+    border-radius: 50%;
+    transform: translateX(-3px);
+}
+
+/* 失败状态的节点 - 红色 */
+.timeline-item.failed::before {
+    background: var(--red);
+}
+
+/* 时间轴内容卡片 */
+.timeline-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.6rem 0.75rem;
+}
+
+.timeline-time {
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+
+.timeline-tool {
+    display: inline-block;
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    padding: 0.1rem 0.4rem;
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-right: 0.5rem;
+}
+
+.timeline-info {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+    margin-top: 0.25rem;
+}
+
+.timeline-status {
+    display: inline-block;
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 0.1rem 0.3rem;
+    margin-left: 0.25rem;
+}
+
+.timeline-status.success {
+    color: var(--green);
+}
+
+.timeline-status.failed {
+    color: var(--red);
+}
+
+/* 空状态 */
+.timeline-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}

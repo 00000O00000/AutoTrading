@@ -157,6 +157,8 @@ class TradingEngine:
         "set_leverage": lambda args: ("LEVERAGE", args.get('target', 'UNKNOWN')),
         "set_margin_mode": lambda args: ("MARGIN", args.get('target', 'UNKNOWN')),
         "modify_position": lambda args: ("MODIFY", args.get('target', 'UNKNOWN')),
+        "cancel_orders": lambda args: ("CANCEL", args.get('target', 'UNKNOWN')),
+        "cancel_order": lambda args: ("CANCEL_ID", args.get('target', 'UNKNOWN')),
     }
     
     def _save_decision(
@@ -318,6 +320,28 @@ class TradingEngine:
                     )
                     return True, None
             
+            elif tool_call.name == "cancel_orders":
+                symbol = tool_call.args.get('target', '')
+                order_type = tool_call.args.get('order_type', 'all')
+                
+                if self.live_trading:
+                    result = self.executor.cancel_orders(symbol, order_type)
+                    return result.success, result
+                else:
+                    logger.info("[模拟] CANCEL_ORDERS: %s (%s)", symbol, order_type)
+                    return True, None
+            
+            elif tool_call.name == "cancel_order":
+                symbol = tool_call.args.get('target', '')
+                order_id = tool_call.args.get('order_id', '')
+                
+                if self.live_trading:
+                    result = self.executor.cancel_order_by_id(symbol, order_id)
+                    return result.success, result
+                else:
+                    logger.info("[模拟] CANCEL_ORDER: %s, order_id=%s", symbol, order_id)
+                    return True, None
+            
             else:
                 logger.warning("未知工具: %s", tool_call.name)
                 return False, None
@@ -331,6 +355,7 @@ class TradingEngine:
         运行单个交易循环。
         
         这是交易循环的主要入口点。
+        包含 AI 决策容错机制：当工具执行失败时，将错误反馈给 AI 并重试。
         
         Returns:
             包含循环结果的字典
@@ -345,8 +370,12 @@ class TradingEngine:
             "actions": [],
             "memory_updated": False,
             "tokens_used": 0,
-            "live_trading": self.live_trading
+            "live_trading": self.live_trading,
+            "retry_count": 0
         }
+        
+        # 最大重试次数
+        MAX_RETRIES = 3
         
         try:
             # 第一步: 获取记忆内容
@@ -360,46 +389,110 @@ class TradingEngine:
             # 第三步: 构建提示词上下文
             prompt_context = self.data_engine.build_prompt_context(context)
             
-            # 第四步: 获取 AI 分析
-            ai_response = self.ai_agent.analyze(
-                market_context=prompt_context,
-                custom_instructions=self._get_custom_instructions()
-            )
-            
-            result["tokens_used"] = ai_response.usage.get("total_tokens", 0)
-            logger.info("AI 分析完成 (%d tokens)", result["tokens_used"])
-            
-            # 第五步: 保存快照
+            # 第四步: 保存快照 (提前保存，用于记录所有决策)
             snapshot = self._save_snapshot(context)
             
-            # 第六步: 执行工具调用
-            for tool_call in ai_response.tool_calls:
-                success, execution_result = self._execute_tool(tool_call)
+            # 第五步: 构建初始消息历史
+            from app.bot.prompts import SYSTEM_PROMPT, build_user_prompt
+            system_prompt = SYSTEM_PROMPT.format(
+                interval=self.data_engine.config.TRADING_INTERVAL_MINUTES
+            )
+            user_prompt = build_user_prompt(prompt_context, self._get_custom_instructions())
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            # 第六步: AI 决策与执行循环 (带重试)
+            retry_count = 0
+            while retry_count <= MAX_RETRIES:
+                # 获取 AI 分析
+                if retry_count == 0:
+                    ai_response = self.ai_agent.analyze(
+                        market_context=prompt_context,
+                        custom_instructions=self._get_custom_instructions()
+                    )
+                else:
+                    # 使用带消息历史的分析
+                    ai_response = self.ai_agent.analyze_with_messages(messages)
                 
-                if tool_call.name == "update_memory" and success:
-                    result["memory_updated"] = True
+                result["tokens_used"] += ai_response.usage.get("total_tokens", 0)
+                logger.info("AI 分析完成 (%d tokens, 重试 #%d)", 
+                           ai_response.usage.get("total_tokens", 0), retry_count)
                 
-                # 保存所有工具决策 (不仅仅是交易操作)
-                self._save_decision(
-                    tool_call, 
-                    ai_response.reasoning, 
-                    snapshot,
-                    execution_result,
-                    success
-                )
+                # 将 AI 回复加入消息历史
+                messages.append({"role": "assistant", "content": ai_response.raw_response})
                 
-                # 只将交易操作添加到结果中
-                if tool_call.name in ("trade_in", "close_position"):
-                    result["actions"].append({
-                        "tool": tool_call.name,
-                        "info": tool_call.info,
-                        "args": tool_call.args,
-                        "success": success,
-                        "executed": self.live_trading
-                    })
+                if not ai_response.tool_calls:
+                    logger.info("AI 未返回工具调用，循环结束")
+                    break
+                
+                # 执行工具调用并收集错误
+                all_success = True
+                error_messages = []
+                
+                for tool_call in ai_response.tool_calls:
+                    success, execution_result = self._execute_tool(tool_call)
+                    
+                    if tool_call.name == "update_memory" and success:
+                        result["memory_updated"] = True
+                    
+                    # 保存所有工具决策
+                    self._save_decision(
+                        tool_call, 
+                        ai_response.reasoning, 
+                        snapshot,
+                        execution_result,
+                        success
+                    )
+                    
+                    # 记录交易操作到结果
+                    if tool_call.name in ("trade_in", "close_position"):
+                        result["actions"].append({
+                            "tool": tool_call.name,
+                            "info": tool_call.info,
+                            "args": tool_call.args,
+                            "success": success,
+                            "executed": self.live_trading
+                        })
+                    
+                    # 收集失败信息
+                    if not success:
+                        all_success = False
+                        error_msg = f"工具 '{tool_call.name}' 执行失败"
+                        if execution_result and execution_result.error:
+                            error_msg += f": {execution_result.error}"
+                        error_messages.append({
+                            "tool": tool_call.name,
+                            "args": tool_call.args,
+                            "error": error_msg
+                        })
+                
+                # 如果所有工具都成功，退出循环
+                if all_success:
+                    logger.info("所有工具执行成功")
+                    break
+                
+                # 如果有失败，构建错误反馈并重试
+                retry_count += 1
+                result["retry_count"] = retry_count
+                
+                if retry_count > MAX_RETRIES:
+                    logger.warning("达到最大重试次数 (%d)，停止重试", MAX_RETRIES)
+                    break
+                
+                # 构建错误反馈消息
+                error_feedback = "⚠️ 工具执行出现错误，请重新决策：\n\n"
+                for err in error_messages:
+                    error_feedback += f"- {err['tool']}({err['args']}): {err['error']}\n"
+                error_feedback += "\n请根据上述错误信息，调整您的决策并重新调用工具。"
+                
+                messages.append({"role": "user", "content": error_feedback})
+                logger.info("工具执行失败，发送错误反馈给 AI 进行重试 (#%d)", retry_count)
             
             result["success"] = True
-            logger.info("循环完成: %d 个动作", len(result["actions"]))
+            logger.info("循环完成: %d 个动作, %d 次重试", len(result["actions"]), retry_count)
             
             # 第七步: 保存账户净值快照（用于收益曲线）
             self._save_equity_snapshot(context)

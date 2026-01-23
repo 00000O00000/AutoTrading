@@ -1,0 +1,52 @@
+/* 
+ * OpenNOF1 - Tabs Styles
+ * 标签页头部和内容
+ */
+
+/* 标签页头部 */
+.tabs-header {
+    display: flex;
+    border-bottom: var(--border-width) solid var(--border-color);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border: none;
+    border-right: 1px solid var(--border-color);
+    background: transparent;
+    font-weight: 700;
+    font-size: 0.625rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.tab-btn:last-child {
+    border-right: none;
+}
+
+.tab-btn.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--text-primary);
+}
+
+.tab-btn:hover:not(.active) {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* 标签页内容 */
+.tab-content {
+    flex: 1;
+    overflow-y: auto;
+    display: none;
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+}

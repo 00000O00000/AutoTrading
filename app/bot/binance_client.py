@@ -365,34 +365,48 @@ class BinanceClient:
             'used': usdt.get('used', 0)
         }
     
-    def fetch_positions(self) -> List[Dict]:
+    def fetch_positions(self, symbols: List[str] = None) -> List[Dict]:
         """
         获取当前持仓。
         
+        Args:
+            symbols: 可选的交易对列表，用于过滤
+            
         Returns:
             List of 持仓字典
         """
         self._require_auth()
-        positions = self.exchange.fetch_positions()
+        # CCXT binanceusdm 允许传递 symbols 参数来过滤 (映射到 API)
+        # 注意: 即使传递了 symbols，某些交易所也可能返回所有并在本地过滤
+        positions = self.exchange.fetch_positions(symbols)
         
         # 仅过滤活跃持仓
         active = []
         for pos in positions:
             contracts = float(pos.get('contracts', 0))
             if contracts != 0:
-                active.append({
-                    'symbol': pos['symbol'],
-                    'side': 'LONG' if contracts > 0 else 'SHORT',
-                    'contracts': abs(contracts),
-                    'notional': pos.get('notional', 0),
-                    'entry_price': pos.get('entryPrice', 0),
-                    'mark_price': pos.get('markPrice', 0),
-                    'unrealized_pnl': pos.get('unrealizedPnl', 0),
-                    'percentage': pos.get('percentage', 0),
-                    'leverage': pos.get('leverage', 1)
-                })
+                active.append(self._format_position(pos))
         
         return active
+        
+    def _format_position(self, pos: Dict) -> Dict:
+        """格式化单个持仓数据。"""
+        # 移除可能的后缀，如 DOGE/USDT:USDT -> DOGE/USDT
+        raw_symbol = pos['symbol']
+        symbol = raw_symbol.split(':')[0]
+        
+        contracts = float(pos.get('contracts', 0))
+        return {
+            'symbol': symbol,  # 标准化 DOMAIN/QUOTE
+            'side': 'LONG' if contracts > 0 else 'SHORT',
+            'contracts': abs(contracts),
+            'notional': pos.get('notional', 0),
+            'entry_price': pos.get('entryPrice', 0),
+            'mark_price': pos.get('markPrice', 0),
+            'unrealized_pnl': pos.get('unrealizedPnl', 0),
+            'percentage': pos.get('percentage', 0),
+            'leverage': pos.get('leverage', 1)
+        }
     
     # =========================================================================
     # 工具方法
@@ -401,12 +415,6 @@ class BinanceClient:
     def get_precision(self, symbol: str) -> Dict[str, int]:
         """
         获取交易对的价格和数量精度。
-        
-        Args:
-            symbol: 交易对
-            
-        Returns:
-            Dict 包含价格和数量精度
         """
         self.load_markets()
         market = self._markets_cache.get(symbol, {})
@@ -417,60 +425,21 @@ class BinanceClient:
             'amount': precision.get('amount', 8)
         }
     
-    def truncate_to_precision(
-        self, 
-        value: float, 
-        precision: int
-    ) -> float:
-        """
-        将数值截断到指定的小数精度。
-        
-        Args:
-            value: 要截断的数值
-            precision: 小数位数
-            
-        Returns:
-            截断后的数值
-        """
+    def truncate_to_precision(self, value: float, precision: int) -> float:
+        """截断到指定精度。"""
         multiplier = 10 ** precision
         return int(value * multiplier) / multiplier
     
     def get_min_notional(self, symbol: str) -> float:
-        """
-        获取交易对的最小名义价值 (USDT)。
-        
-        Args:
-            symbol: 交易对
-            
-        Returns:
-            最小名义价值 (USDT)
-        """
+        """获取最小名义价值。"""
         self.load_markets()
         market = self._markets_cache.get(symbol, {})
-        
         limits = market.get('limits', {})
         cost_limits = limits.get('cost', {})
-        
-        # 如果未指定，默认为 5 USDT
         return cost_limits.get('min', 5.0)
     
-    def calculate_quantity(
-        self, 
-        symbol: str, 
-        usdt_amount: float,
-        current_price: float = None
-    ) -> float:
-        """
-        根据 USDT 金额计算订单数量。
-        
-        Args:
-            symbol: 交易对
-            usdt_amount: 花费的 USDT 金额
-            current_price: 可选当前价格 (如未提供则自动获取)
-            
-        Returns:
-            截断到正确精度的数量
-        """
+    def calculate_quantity(self, symbol: str, usdt_amount: float, current_price: float = None) -> float:
+        """计算下单数量。"""
         if current_price is None:
             ticker = self.fetch_ticker(symbol)
             current_price = ticker.last_price
@@ -478,16 +447,15 @@ class BinanceClient:
         if current_price <= 0:
             raise ValueError(f"Invalid price for {symbol}: {current_price}")
         
-        # 计算原始数量
         raw_quantity = usdt_amount / current_price
-        
-        # 获取精度并截断
         precision = self.get_precision(symbol)
         return self.truncate_to_precision(raw_quantity, precision['amount'])
     
     def get_position_size(self, symbol: str) -> dict:
         """
         获取交易对的当前持仓大小。
+        
+        包含重试机制以应对 API 延迟。
         
         Args:
             symbol: 交易对
@@ -496,11 +464,23 @@ class BinanceClient:
             Dict 包含合约数、方向和名义价值
         """
         self._require_auth()
-        positions = self.fetch_positions()
         
-        for pos in positions:
-            if pos['symbol'] == symbol:
-                return pos
+        import time
+        max_retries = 3
+        
+        for i in range(max_retries):
+            # 尝试指定 symbol 获取，此方式在部分 API 上更精确
+            try:
+                positions = self.fetch_positions([symbol])
+                for pos in positions:
+                    if pos['symbol'] == symbol:
+                        return pos
+            except Exception as e:
+                logger.warning("尝试获取持仓失败 (%d/%d): %s", i+1, max_retries, e)
+            
+            # 如果没找到，但在前几次重试中，稍微等待一下
+            if i < max_retries - 1:
+                time.sleep(1)
         
         return None
     
@@ -592,7 +572,10 @@ class BinanceClient:
     
     def cancel_all_orders(self, symbol: str) -> List[Dict]:
         """
-        取消交易对的所有挂单。
+        取消交易对的所有挂单（包括普通订单和算法订单/条件委托单）。
+        
+        币安合约中止损/止盈单被创建为算法订单 (algoType: CONDITIONAL)，
+        需要使用专门的 API 来取消。
         
         Args:
             symbol: 交易对
@@ -601,14 +584,92 @@ class BinanceClient:
             List of 已取消的订单
         """
         self._require_auth()
+        cancelled_orders = []
+        binance_symbol = symbol.replace('/', '')
         
+        # 1. 取消普通订单
         try:
-            result = self.exchange.cancel_all_orders(symbol)
-            logger.info("已取消 %s 的所有订单", symbol)
-            return result
+            result = self.exchange.fapiPrivateDeleteAllOpenOrders({
+                'symbol': binance_symbol
+            })
+            logger.info("已取消 %s 的普通订单: %s", symbol, result)
+            if isinstance(result, list):
+                cancelled_orders.extend(result)
         except Exception as e:
-            logger.warning("无法取消 %s 的订单: %s", symbol, e)
-            return []
+            logger.warning("取消普通订单失败: %s", e)
+            # 回退到 CCXT 方法
+            try:
+                result = self.exchange.cancel_all_orders(symbol)
+                if isinstance(result, list):
+                    cancelled_orders.extend(result)
+            except Exception as e2:
+                logger.warning("CCXT cancel_all_orders 也失败: %s", e2)
+        
+        # 2. 取消算法订单（止损/止盈条件委托单）
+        try:
+            result = self.exchange.fapiPrivateDeleteAlgoOpenOrders({
+                'symbol': binance_symbol
+            })
+            logger.info("已取消 %s 的算法订单: %s", symbol, result)
+        except Exception as e:
+            logger.warning("取消算法订单失败: %s", e)
+            # 尝试逐个取消
+            try:
+                algo_orders = self.exchange.fapiPrivateGetOpenAlgoOrders({
+                    'symbol': binance_symbol
+                })
+                for order in algo_orders:
+                    try:
+                        self.exchange.fapiPrivateDeleteAlgoOrder({
+                            'symbol': binance_symbol,
+                            'algoId': order.get('algoId')
+                        })
+                        cancelled_orders.append(order)
+                        logger.info("已取消算法订单: %s", order.get('algoId'))
+                    except Exception as inner_e:
+                        logger.warning("取消算法订单 %s 失败: %s", order.get('algoId'), inner_e)
+            except Exception as e2:
+                logger.warning("获取算法订单也失败: %s", e2)
+        
+        return cancelled_orders
+    
+    def cancel_order_by_id(self, symbol: str, order_id: str) -> Dict:
+        """
+        根据订单 ID 取消单个订单。
+        
+        自动检测订单类型（普通订单或算法订单）并调用相应的 API。
+        
+        Args:
+            symbol: 交易对 (例如 'BTC/USDT')
+            order_id: 订单 ID
+            
+        Returns:
+            取消结果
+        """
+        self._require_auth()
+        binance_symbol = symbol.replace('/', '')
+        
+        logger.info("正在取消订单: symbol=%s, order_id=%s", symbol, order_id)
+        
+        # 先尝试作为普通订单取消
+        try:
+            result = self.exchange.cancel_order(order_id, symbol)
+            logger.info("已取消普通订单: %s", order_id)
+            return {'success': True, 'order_id': order_id, 'type': 'normal', 'result': result}
+        except Exception as e:
+            logger.debug("普通订单取消失败，尝试算法订单: %s", e)
+        
+        # 尝试作为算法订单取消 (使用 algoId)
+        try:
+            result = self.exchange.fapiPrivateDeleteAlgoOrder({
+                'symbol': binance_symbol,
+                'algoId': order_id
+            })
+            logger.info("已取消算法订单: %s", order_id)
+            return {'success': True, 'order_id': order_id, 'type': 'algo', 'result': result}
+        except Exception as e:
+            logger.error("取消订单失败 %s: %s", order_id, e)
+            return {'success': False, 'order_id': order_id, 'error': str(e)}
     
     # =========================================================================
     # ADVANCED TRADING FUNCTIONS (杠杆、保证金模式、止盈止损)
@@ -721,25 +782,58 @@ class BinanceClient:
     
     def get_open_orders(self, symbol: str = None) -> List[Dict]:
         """
-        获取交易对或所有交易对的挂单。
+        获取交易对或所有交易对的挂单，包括条件委托单（止损/止盈）。
         
         Args:
             symbol: 交易对 (可选, None 表示所有)
             
         Returns:
-            List of 挂单
+            List of 挂单 (包括普通订单和条件订单)
         """
         self._require_auth()
         
+        all_orders = []
+        
         try:
+            # 获取普通挂单
             if symbol:
                 orders = self.exchange.fetch_open_orders(symbol)
             else:
                 orders = self.exchange.fetch_open_orders()
-            return orders
+            all_orders.extend(orders)
         except Exception as e:
-            logger.warning("获取挂单失败: %s", e)
-            return []
+            logger.warning("获取普通挂单失败: %s", e)
+        
+        # 获取算法订单 (条件委托单：止损/止盈)
+        # 算法订单需要使用专用的 API 端点
+        try:
+            if symbol:
+                binance_symbol = symbol.replace('/', '')
+                
+                # 使用正确的 API 获取算法订单 (止损/止盈条件委托)
+                algo_orders = self.exchange.fapiPrivateGetOpenAlgoOrders({
+                    'symbol': binance_symbol
+                })
+                
+                for order in algo_orders:
+                    order_id = str(order.get('algoId'))
+                    # 检查是否已存在于 all_orders 中
+                    if not any(str(o.get('id')) == order_id for o in all_orders):
+                        all_orders.append({
+                            'id': order_id,
+                            'symbol': symbol,
+                            'type': order.get('orderType'),  # STOP_MARKET, TAKE_PROFIT_MARKET
+                            'side': order.get('side'),
+                            'amount': float(order.get('quantity', 0)),
+                            'stopPrice': float(order.get('triggerPrice', 0)),
+                            'status': order.get('algoStatus'),
+                            'is_algo': True,
+                            'info': order
+                        })
+        except Exception as e:
+            logger.debug("获取算法订单失败 (可能不影响功能): %s", e)
+        
+        return all_orders
     
     def cancel_orders_by_type(self, symbol: str, order_type: str) -> List[Dict]:
         """
@@ -761,20 +855,49 @@ class BinanceClient:
         orders = self.get_open_orders(symbol)
         cancelled = []
         
+        # 匹配模式：同时检查 CCXT type 和币安原始 info.type
+        # 止损单类型: STOP_MARKET, STOP, stop_market
+        # 止盈单类型: TAKE_PROFIT_MARKET, TAKE_PROFIT, take_profit_market
+        type_patterns = {
+            'stop_loss': ['STOP_MARKET', 'STOP', 'stop_market', 'stop'],
+            'take_profit': ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT', 'take_profit_market', 'take_profit']
+        }
+        
+        target_patterns = type_patterns.get(order_type.lower(), [])
+        
         for order in orders:
-            order_type_map = {
-                'stop_loss': ['STOP_MARKET', 'STOP'],
-                'take_profit': ['TAKE_PROFIT_MARKET', 'TAKE_PROFIT']
-            }
+            # 获取订单类型 (检查多个来源)
+            ccxt_type = str(order.get('type', '')).upper()
+            info_type = str(order.get('info', {}).get('type', '')).upper() if order.get('info') else ''
             
-            target_types = order_type_map.get(order_type.lower(), [])
-            if order.get('type', '').upper() in target_types:
+            # 匹配任一来源
+            matched = False
+            for pattern in target_patterns:
+                if ccxt_type == pattern.upper() or info_type == pattern.upper():
+                    matched = True
+                    break
+            
+            if matched:
                 try:
-                    self.exchange.cancel_order(order['id'], symbol)
+                    # 根据订单类型选择正确的取消 API
+                    if order.get('is_algo'):
+                        # 算法订单需要使用 algoId 取消
+                        binance_symbol = symbol.replace('/', '')
+                        self.exchange.fapiPrivateDeleteAlgoOrder({
+                            'symbol': binance_symbol,
+                            'algoId': order['id']
+                        })
+                    else:
+                        # 普通订单使用标准 CCXT 方法
+                        self.exchange.cancel_order(order['id'], symbol)
                     cancelled.append(order)
-                    logger.info("已取消 %s 订单: %s", order_type, order['id'])
+                    logger.info("已取消 %s 订单: %s (type=%s, is_algo=%s)", 
+                               order_type, order['id'], ccxt_type, order.get('is_algo', False))
                 except Exception as e:
                     logger.warning("取消订单失败 %s: %s", order['id'], e)
+            else:
+                logger.debug("订单 %s 类型不匹配 (type=%s, info.type=%s), 跳过",
+                            order['id'], ccxt_type, info_type)
         
         return cancelled
 

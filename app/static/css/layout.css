@@ -1,0 +1,183 @@
+/* 
+ * OpenNOF1 - Layout Styles
+ * 主网格布局、图表区域、账户总览、右侧面板
+ */
+
+/* 主网格布局 - 全屏 */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 480px;
+    grid-template-rows: 1fr auto;
+    gap: 0;
+    height: 100%;
+    width: 100%;
+}
+
+/* 左侧区域 - 图表 + 账户总览 */
+.chart-section {
+    display: flex;
+    flex-direction: column;
+    border-right: var(--border-width) solid var(--border-color);
+}
+
+/* 币种价格行 - 与底部账户总览一致的行高 */
+.ticker-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background: var(--bg-primary);
+    border-bottom: var(--border-width) solid var(--border-color);
+}
+
+.ticker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-right: 1px solid var(--border-color);
+}
+
+.ticker-item:last-child {
+    border-right: none;
+}
+
+.ticker-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.ticker-symbol {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.ticker-price {
+    font-size: 1rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.ticker-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.ticker-change.positive { color: var(--green); }
+.ticker-change.negative { color: var(--red); }
+
+/* 迷你走势图 */
+.mini-chart {
+    width: 60px !important;
+    height: 30px !important;
+}
+
+/* 主图表区域 */
+.main-chart-container {
+    flex: 1;
+    position: relative;
+    background: var(--bg-primary);
+    border-bottom: var(--border-width) solid var(--border-color);
+    min-height: 300px;
+    padding: 1rem;
+}
+
+.chart-header {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: var(--bg-primary);
+    padding: 0.5rem 1rem;
+    border: var(--border-width) solid var(--border-color);
+    z-index: 10;
+}
+
+.chart-header .value {
+    font-size: 1.5rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.chart-header .change {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.chart-header .change.positive {
+    color: var(--green);
+}
+
+.chart-header .change.negative {
+    color: var(--red);
+}
+
+#equityChart {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* 账户总览面板 */
+.account-overview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--bg-primary);
+}
+
+.account-stat {
+    padding: 1rem;
+    text-align: center;
+    border-right: 1px solid var(--border-color);
+}
+
+.account-stat:last-child {
+    border-right: none;
+}
+
+.account-stat .label {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+}
+
+.account-stat .value {
+    font-size: 1.25rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.account-stat .sub {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.account-stat .positive {
+    color: var(--green);
+}
+
+.account-stat .negative {
+    color: var(--red);
+}
+
+/* 右侧面板 */
+.feed-section {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    overflow: hidden;
+    grid-row: 1 / 3;
+    grid-column: 2;
+}
+
+/* 持仓表格容器 */
+.positions-container {
+    padding: 0.5rem 1rem;
+    overflow-y: auto;
+}
+
+/* 隐藏的 Ticker Tape (不再使用) */
+.ticker-tape-container {
+    display: none;
+}

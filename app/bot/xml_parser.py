@@ -256,6 +256,24 @@ def validate_tool_call(tool_data: Dict[str, Any]) -> ToolCall:
         _validate_positive_number(args, 'stop_loss_price', name)
         _validate_positive_number(args, 'take_profit_price', name)
     
+    if name == "cancel_orders":
+        # 验证 order_type (如果提供)
+        order_type = args.get('order_type', 'all').lower()
+        if order_type not in ['stop_loss', 'take_profit', 'all']:
+            raise ToolValidationError(
+                name,
+                f"Invalid order_type '{order_type}'. Must be 'stop_loss', 'take_profit', or 'all'"
+            )
+        args['order_type'] = order_type
+    
+    if name == "cancel_order":
+        # 验证 order_id 必须提供
+        if 'order_id' not in args or not args['order_id']:
+            raise ToolValidationError(
+                name,
+                "order_id is required for cancel_order"
+            )
+    
     # Create ToolCall
     return ToolCall(
         name=name,
@@ -337,6 +355,10 @@ def format_tool_calls_summary(tool_calls: List[ToolCall]) -> str:
             lines.append(f"[MARGIN] {tc.args.get('target')} -> {tc.args.get('mode')}")
         elif tc.name == "modify_position":
             lines.append(f"[MODIFY] {tc.args.get('target')}: {tc.info}")
+        elif tc.name == "cancel_orders":
+            lines.append(f"[CANCEL] {tc.args.get('target')} ({tc.args.get('order_type', 'all')})")
+        elif tc.name == "cancel_order":
+            lines.append(f"[CANCEL_ID] {tc.args.get('target')} order_id={tc.args.get('order_id')}")
         elif tc.name == "update_memory":
             content = tc.args.get('content', '')
             preview = (content[:50] + '...') if len(content) > 50 else content

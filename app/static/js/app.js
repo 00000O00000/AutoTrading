@@ -14,6 +14,12 @@ let miniCharts = {};
 // 使用浏览器本地时区格式化时间显示
 function formatTimeWithTZ(isoString, options = {}) {
     if (!isoString) return '';
+    
+    // 如果是 Naive 时间 (无 Z 无 +8:00)，手动加 Z 视为 UTC
+    if (isoString.indexOf('Z') === -1 && isoString.indexOf('+') === -1 && (isoString.match(/-/g) || []).length >= 2) {
+        isoString += 'Z';
+    }
+
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return '';
     
@@ -21,9 +27,20 @@ function formatTimeWithTZ(isoString, options = {}) {
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: false
     };
-    return date.toLocaleString('zh-CN', { ...defaultOptions, ...options });
+    // 过滤掉 undefined 的选项，防止覆盖默认值
+    const finalOptions = { ...defaultOptions };
+    for (const k in options) {
+        if (options[k] !== undefined) {
+            finalOptions[k] = options[k];
+        } else {
+            delete finalOptions[k];
+        }
+    }
+
+    return date.toLocaleString('zh-CN', finalOptions);
 }
 
 // 获取本地时区的分组键 (分钟级别)
@@ -57,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchDecisions();
     fetchPositions();
     fetchMemory();
+    fetchRecords();
+    fetchInstructions();
 
     // Setup event listeners
     setupEventListeners();
@@ -69,10 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchPositions();
     }, REFRESH_INTERVAL);
 
-    // Slower poll for decisions and chart
+    // Slower poll for decisions, chart and records
     setInterval(() => {
         fetchDecisions();
         updateEquityChart();
+        fetchRecords();
     }, 15000);
 });
 
@@ -132,6 +152,10 @@ function initTabs() {
             if (tabId === 'settings') {
                 updateSettingsAuthState();
             }
+            // 切换到记录标签时获取最新记录
+            if (tabId === 'records') {
+                fetchRecords();
+            }
         });
     });
     
@@ -161,7 +185,7 @@ function initMiniCharts() {
                 datasets: [{
                     data: [],
                     borderColor: '#666',
-                    borderWidth: 1.5,
+                    borderWidth: 2.5,
                     fill: false,
                     tension: 0.3,
                     pointRadius: 0
@@ -303,8 +327,15 @@ async function updateEquityChart() {
     if (!data || !data.data || !equityChart) return;
 
     const labels = data.data.map(d => {
-        const date = new Date(d.timestamp);
-        return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        // 使用 formatTimeWithTZ 确保时区与对话/记录面板一致
+        // 显示 MM/DD HH:mm
+        return formatTimeWithTZ(d.timestamp, { 
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit', 
+            minute: '2-digit',
+            year: undefined
+        });
     });
 
     const values = data.data.map(d => d.profit_pct);
@@ -319,6 +350,9 @@ async function updateEquityChart() {
 
     equityChart.data.labels = labels;
     equityChart.data.datasets[0].data = values;
+    
+    // 先调用 resize 确保图表尺寸正确计算，再更新数据
+    equityChart.resize();
     equityChart.update('none');
 }
 
@@ -677,6 +711,104 @@ function setupEventListeners() {
         }
     });
 
+    // Run once button
+    document.getElementById('btn-run-once')?.addEventListener('click', async (e) => {
+        const btn = e.target;
+        const originalText = btn.textContent;
+        btn.textContent = '运行中...';
+        btn.disabled = true;
+        
+        try {
+            const result = await fetchAPI('/run-once', { method: 'POST' });
+            if (result?.success) {
+                showModal('提示', '单次循环执行完成');
+                fetchDecisions();
+                updateAccountSummary();
+            } else {
+                showModal('执行失败', result?.error || '未知错误');
+            }
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    });
+
+    // Close all positions button - 两阶段确认
+    let closeAllStage = 0; // 0: 初始, 1: 等待确认
+    let closeAllTimer = null;
+    
+    document.getElementById('btn-close-all')?.addEventListener('click', async (e) => {
+        const btn = e.target;
+        
+        if (closeAllStage === 0) {
+            // 第一阶段：变黄色，开始倒计时
+            closeAllStage = 1;
+            btn.textContent = '确认全平 (2s)';
+            btn.style.backgroundColor = '#f59e0b';
+            btn.style.borderColor = '#f59e0b';
+            btn.disabled = true;
+            
+            // 2秒后启用按钮
+            let countdown = 2;
+            closeAllTimer = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    btn.textContent = `确认全平 (${countdown}s)`;
+                } else {
+                    clearInterval(closeAllTimer);
+                    btn.textContent = '⚠️ 点击确认';
+                    btn.disabled = false;
+                }
+            }, 1000);
+            
+            // 5秒后自动重置（如果未点击）
+            setTimeout(() => {
+                if (closeAllStage === 1) {
+                    resetCloseAllBtn(btn);
+                }
+            }, 5000);
+            
+        } else if (closeAllStage === 1) {
+            // 第二阶段：执行全平
+            clearInterval(closeAllTimer);
+            btn.textContent = '正在平仓...';
+            btn.style.backgroundColor = '#ef4444';
+            btn.style.borderColor = '#ef4444';
+            btn.disabled = true;
+            
+            try {
+                const result = await fetchAPI('/close-all', { method: 'POST' });
+                
+                if (result?.success) {
+                    const msg = `${result.message}<br><br>已平仓: ${result.results.closed.length} 个<br>已撤单: ${result.results.cancelled.length} 个`;
+                    showModal('操作完成', msg);
+                } else {
+                    let msg = `平仓完成，但有错误：<br>${result?.message || '未知错误'}`;
+                    if (result?.results?.errors?.length > 0) {
+                        msg += '<br><br>错误详情：<br>' + result.results.errors.join('<br>');
+                    }
+                    showModal('操作结果', msg);
+                }
+                
+                fetchPositions();
+                updateAccountSummary();
+            } catch (err) {
+                showModal('错误', '一键全平失败: ' + err.message);
+            } finally {
+                resetCloseAllBtn(btn);
+            }
+        }
+    });
+    
+    function resetCloseAllBtn(btn) {
+        closeAllStage = 0;
+        if (closeAllTimer) clearInterval(closeAllTimer);
+        btn.textContent = '一键全平';
+        btn.style.backgroundColor = '';
+        btn.style.borderColor = '';
+        btn.disabled = false;
+    }
+
     // Live trading toggle
     document.getElementById('live-trading')?.addEventListener('change', async (e) => {
         const enable = e.target.checked;
@@ -761,4 +893,88 @@ function showModal(title, message, options = {}) {
 function closeModal() {
     const modal = document.getElementById('custom-modal');
     if (modal) modal.style.display = 'none';
+}
+
+// --- Records Timeline ---
+
+// 工具名称汉化映射
+const TOOL_NAMES_TIMELINE = {
+    'trade_in': '开仓',
+    'close_position': '平仓',
+    'set_leverage': '设置杠杆',
+    'set_margin_mode': '保证金模式',
+    'modify_position': '修改止盈止损',
+    'update_memory': '更新记忆'
+};
+
+async function fetchRecords() {
+    const container = document.getElementById('records-timeline');
+    if (!container) return;
+    
+    const data = await fetchAPI('/decisions');
+    
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        container.innerHTML = '<div class="timeline-empty">暂无交易记录</div>';
+        return;
+    }
+    
+    // 按时间倒序排列（最新的在上面），并过滤掉记忆更新
+    const sorted = [...data]
+        .filter(record => record.tool_name !== 'update_memory')
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="timeline-empty">暂无交易记录</div>';
+        return;
+    }
+    
+    // 渲染时间轴
+    let html = '<div class="timeline">';
+    
+    sorted.forEach(record => {
+        const time = formatTimeWithTZ(record.timestamp);
+        const toolName = TOOL_NAMES_TIMELINE[record.tool_name] || record.tool_name?.toUpperCase() || '未知';
+        const info = record.info || '无描述';
+        const status = record.status === 'SUCCESS' ? 'success' : 
+                      record.status === 'FAILED' ? 'failed' : '';
+        const statusText = record.status === 'SUCCESS' ? '✓' : 
+                          record.status === 'FAILED' ? '✗' : '';
+        
+        // 根据操作类型确定节点颜色
+        const actionClass = record.action === 'BUY' ? 'buy' : 
+                          record.action === 'SELL' || record.action === 'CLOSE' ? 'sell' : 
+                          status;
+        
+        html += `
+            <div class="timeline-item ${actionClass}">
+                <div class="timeline-content">
+                    <div class="timeline-time">${time}</div>
+                    <div>
+                        <span class="timeline-tool">${toolName}</span>
+                        ${statusText ? `<span class="timeline-status ${status}">${statusText}</span>` : ''}
+                    </div>
+                    <div class="timeline-info">${escapeHtml(info)}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// --- Instructions ---
+
+async function fetchInstructions() {
+    const textarea = document.getElementById('custom-instructions');
+    if (!textarea) return;
+    
+    const data = await fetchAPI('/instructions');
+    
+    if (data && data.instructions !== undefined) {
+        // 只在输入框为空时填充，避免覆盖用户正在编辑的内容
+        if (!textarea.value || textarea.value === textarea.defaultValue) {
+            textarea.value = data.instructions;
+        }
+    }
 }

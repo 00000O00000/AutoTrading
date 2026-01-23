@@ -1,68 +1,82 @@
 /* 
  * OpenNOF1 - Mobile Responsive Styles
- * Mobile-first design with progressive enhancement
+ * 通用移动端样式和组件适配
  */
 
 /* ============================================
-   MOBILE BASE (< 576px)
+   手机基础样式 (< 576px)
    ============================================ */
 
-/* Navbar Mobile */
 @media (max-width: 576px) {
+    /* Navbar 紧凑化 */
     .navbar {
-        flex-direction: column;
-        gap: 1rem;
-        padding: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        height: 45px;
     }
 
     .navbar-brand {
-        font-size: 1.25rem;
-    }
-
-    .navbar-nav {
-        width: 100%;
-        justify-content: center;
-        gap: 0.5rem;
-    }
-
-    .nav-link {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
-    }
-}
-
-/* Container Mobile */
-@media (max-width: 576px) {
-    .container {
-        padding: 0;
-        height: 100%;
-        overflow: hidden;
-    }
-
-    /* Dashboard 填满容器 */
-    .dashboard-grid {
-        height: 100%;
+        font-size: 1.1rem;
     }
     
-    .card {
-        box-shadow: 4px 4px 0 0 var(--border-color);
-        margin-bottom: 0.75rem;
+    .navbar .d-flex.align-center {
+        font-size: 0.7rem;
     }
 
-    .card-header {
-        padding: 0.5rem 0.75rem;
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        margin-right: 0.3rem;
+    }
+
+    /* 按钮适配 */
+    .btn {
+        padding: 0.5rem 0.8rem;
         font-size: 0.75rem;
     }
 
-    .card-body {
-        padding: 0.75rem;
+    .btn-lg {
+        padding: 0.6rem 1rem;
+        font-size: 0.85rem;
     }
-}
 
-/* MCP Call Mobile */
-@media (max-width: 576px) {
+    .btn-sm {
+        padding: 0.25rem 0.4rem;
+        font-size: 0.6rem;
+    }
+
+    /* 表单适配 - 防止 iOS 缩放 */
+    .form-control {
+        padding: 0.5rem;
+        font-size: 16px;
+    }
+
+    .form-label {
+        font-size: 0.7rem;
+    }
+
+    /* 卡片适配 */
+    .card {
+        margin-bottom: 0.5rem;
+    }
+
+    .card-header {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.7rem;
+    }
+
+    .card-body {
+        padding: 0.6rem;
+    }
+
+    /* Badge 适配 */
+    .badge {
+        font-size: 0.55rem;
+        padding: 0.1rem 0.35rem;
+    }
+
+    /* MCP 调用样式 */
     .mcp-header {
-        padding: 0.5rem 0.25rem;
+        padding: 0.4rem;
     }
 
     .mcp-info {
@@ -71,241 +85,160 @@
 
     .mcp-tool-badge {
         font-size: 0.5rem;
-        padding: 0.1rem 0.3rem;
+        padding: 0.1rem 0.25rem;
+    }
+
+    .mcp-time {
+        font-size: 0.5rem;
     }
 
     .mcp-args-table td {
         display: block;
         width: 100%;
         border: none;
-        padding: 0.1rem 0.25rem;
+        padding: 0.15rem 0.25rem;
     }
 
     .mcp-args-table .arg-key {
         font-weight: 800;
         color: var(--text-secondary);
-        font-size: 0.6rem;
+        font-size: 0.55rem;
     }
 
     .mcp-args-table .arg-value {
         padding-left: 0.5rem;
         border-bottom: 1px dotted var(--border-color);
-        margin-bottom: 0.25rem;
-    }
-}
-
-/* Alpha Grid Mobile - 2 columns */
-@media (max-width: 576px) {
-    .alpha-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.5rem;
+        margin-bottom: 0.2rem;
+        font-size: 0.65rem;
     }
 
-    .alpha-item {
-        padding: 0.75rem 0.5rem;
+    /* 聊天气泡 */
+    .chat-bubble {
+        padding: 0.4rem;
+        font-size: 0.7rem;
     }
 
-    .alpha-label {
-        font-size: 0.625rem;
+    .chat-avatar {
+        font-size: 0.55rem;
     }
 
-    .alpha-value {
-        font-size: 1.25rem;
+    .chat-timestamp {
+        font-size: 0.5rem;
     }
 
-    .alpha-status {
-        font-size: 0.75rem;
-    }
-}
-
-/* Table Mobile - Scrollable */
-@media (max-width: 576px) {
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin: 0 -0.75rem;
-        padding: 0 0.75rem;
+    .chat-content {
+        font-size: 0.7rem;
     }
 
-    .table {
-        min-width: 500px;
-        font-size: 0.875rem;
-    }
-
-    .table th,
-    .table td {
-        padding: 0.5rem;
-    }
-}
-
-/* Buttons Mobile */
-@media (max-width: 576px) {
-    .btn {
-        padding: 0.625rem 1rem;
-        font-size: 0.875rem;
-        box-shadow: 2px 2px 0 0 var(--border-color);
-    }
-
-    .btn-lg {
-        padding: 0.75rem 1.25rem;
-        font-size: 1rem;
-    }
-
-    /* Stack buttons vertically on mobile */
-    .card-body>.d-flex.gap-2 {
-        flex-direction: column;
-    }
-
-    .card-body>.d-flex.gap-2 .btn {
-        width: 100%;
-        text-align: center;
-    }
-}
-
-/* Decision List Mobile */
-@media (max-width: 576px) {
-    .decision-item {
-        padding: 0.5rem 0;
-    }
-
-    .decision-time {
-        font-size: 0.625rem;
-    }
-
-    .decision-action {
-        font-size: 0.875rem;
-    }
-
-    .decision-info {
-        font-size: 0.75rem;
-        line-height: 1.4;
-    }
-
-    .decision-action .badge {
-        font-size: 0.625rem;
-        padding: 0.125rem 0.375rem;
-    }
-}
-
-/* Forms Mobile */
-@media (max-width: 576px) {
-    .form-control {
-        padding: 0.625rem;
-        font-size: 16px;
-        /* Prevent iOS zoom */
-    }
-
-    textarea.form-control {
-        min-height: 120px;
-    }
-
-    .form-label {
-        font-size: 0.75rem;
-    }
-}
-
-/* Status Indicator Mobile */
-@media (max-width: 576px) {
-    .navbar .d-flex.align-center {
-        font-size: 0.75rem;
-    }
-
-    .status-dot {
-        width: 10px;
-        height: 10px;
+    .chat-action {
+        font-size: 0.5rem;
+        padding: 0.1rem 0.25rem;
     }
 }
 
 /* ============================================
-   TABLET (577px - 768px)
+   平板样式 (577px - 768px)
    ============================================ */
 
 @media (min-width: 577px) and (max-width: 768px) {
     .navbar {
-        padding: 0.75rem 1rem;
+        padding: 0.6rem 1rem;
     }
 
-    .alpha-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-
-    .ticker-item {
-        min-width: 160px;
+    .btn {
+        padding: 0.5rem 1rem;
     }
 }
 
 /* ============================================
-   TOUCH DEVICE OPTIMIZATIONS
+   触屏设备优化
    ============================================ */
 
 @media (hover: none) and (pointer: coarse) {
-
-    /* Larger touch targets */
+    /* 更大的点击区域 */
     .btn {
         min-height: 44px;
         min-width: 44px;
     }
 
-    .nav-link {
+    .tab-btn {
         min-height: 44px;
-        display: flex;
-        align-items: center;
     }
 
-    /* Remove hover effects */
+    .toggle-switch {
+        width: 50px;
+        height: 26px;
+    }
+
+    .toggle-slider:before {
+        height: 20px;
+        width: 20px;
+    }
+
+    input:checked + .toggle-slider:before {
+        transform: translateX(24px);
+    }
+
+    /* 移除 hover 效果 */
     .btn:hover {
         transform: none;
-        box-shadow: var(--shadow-sm);
     }
 
-    /* Active states for touch */
+    /* 触摸反馈 */
     .btn:active {
-        transform: translate(2px, 2px);
-        box-shadow: 1px 1px 0 0 var(--border-color);
+        opacity: 0.8;
+        transform: scale(0.98);
     }
 
     .table tr:hover {
         background: transparent;
     }
+
+    .tool-card-header:hover {
+        background: inherit;
+    }
 }
 
 /* ============================================
-   SAFE AREAS (iPhone X+ notches)
+   安全区域 (iPhone X+ 刘海屏)
    ============================================ */
 
 @supports (padding: env(safe-area-inset-bottom)) {
-    .navbar {
-        padding-left: max(1rem, env(safe-area-inset-left));
-        padding-right: max(1rem, env(safe-area-inset-right));
-    }
+    @media (max-width: 576px) {
+        .navbar {
+            padding-left: max(0.75rem, env(safe-area-inset-left));
+            padding-right: max(0.75rem, env(safe-area-inset-right));
+            padding-top: max(0.5rem, env(safe-area-inset-top));
+        }
 
-    .container {
-        padding-left: max(0.5rem, env(safe-area-inset-left));
-        padding-right: max(0.5rem, env(safe-area-inset-right));
-        padding-bottom: env(safe-area-inset-bottom);
+        .container {
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+
+        .modal-overlay {
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
     }
 }
 
 /* ============================================
-   LANDSCAPE MOBILE
+   横屏手机
    ============================================ */
 
 @media (max-height: 500px) and (orientation: landscape) {
     .navbar {
-        padding: 0.5rem 1rem;
+        padding: 0.4rem 1rem;
+        height: 40px;
     }
 
-    .card-header {
-        padding: 0.375rem 0.75rem;
-    }
-
-    .alpha-grid {
-        grid-template-columns: repeat(4, 1fr);
+    .container {
+        height: calc(100vh - 40px);
     }
 }
 
 /* ============================================
-   DARK MODE SUPPORT (optional)
+   深色模式支持
    ============================================ */
 
 @media (prefers-color-scheme: dark) {
@@ -314,9 +247,7 @@
         --bg-secondary: #0d0d0d;
         --text-primary: #ffffff;
         --text-secondary: #999999;
-        --border-color: #ffffff;
-        --shadow: 6px 6px 0 0 #333333;
-        --shadow-sm: 3px 3px 0 0 #333333;
+        --border-color: #333333;
     }
 
     .card-header {
@@ -325,5 +256,38 @@
 
     .table th {
         background: #2a2a2a;
+    }
+
+    .settings-section-header {
+        background: #333333;
+        color: #ffffff;
+    }
+
+    .tool-badge,
+    .mcp-tool-badge {
+        background: #ffffff;
+        color: #1a1a1a;
+    }
+}
+
+/* ============================================
+   打印样式 (可选)
+   ============================================ */
+
+@media print {
+    .navbar,
+    .tabs-header,
+    .control-buttons,
+    .modal-overlay {
+        display: none !important;
+    }
+
+    .container {
+        height: auto;
+        overflow: visible;
+    }
+
+    .dashboard-grid {
+        display: block;
     }
 }

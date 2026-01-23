@@ -262,6 +262,21 @@ def api_toggle_live():
     })
 
 
+@main_bp.route('/api/instructions', methods=['GET'])
+def api_get_instructions():
+    """获取当前自定义交易指令。"""
+    try:
+        from app.models import SystemSettings
+        settings = SystemSettings.get_or_create()
+        return jsonify({
+            'instructions': settings.custom_instructions or '',
+            'last_updated': settings.last_updated.isoformat() if settings.last_updated else None
+        })
+    except Exception as e:
+        logger.error("Failed to fetch instructions: %s", e)
+        return jsonify({'error': str(e)}), 500
+
+
 @main_bp.route('/api/instructions', methods=['POST'])
 def api_instructions():
     """更新自定义交易指令。"""
@@ -276,6 +291,7 @@ def api_instructions():
     return jsonify({'success': True, 'message': 'Instructions updated'})
 
 
+
 @main_bp.route('/api/run-once', methods=['POST'])
 def api_run_once():
     """运行单个交易循环。"""
@@ -287,6 +303,59 @@ def api_run_once():
         return jsonify(result)
     except Exception as e:
         logger.error("Cycle failed: %s", e)
+        return jsonify({'error': str(e)}), 500
+
+
+@main_bp.route('/api/close-all', methods=['POST'])
+def api_close_all_positions():
+    """一键全平：平掉所有持仓并取消所有挂单。"""
+    if not _service:
+        return jsonify({'error': 'Service not initialized'}), 503
+    
+    try:
+        binance = _service.engine.data_engine.binance
+        results = {'closed': [], 'cancelled': [], 'errors': []}
+        
+        # 1. 获取所有持仓
+        positions = binance.fetch_positions()
+        
+        # 2. 平掉每个持仓
+        for pos in positions:
+            symbol = pos['symbol']
+            contracts = pos['contracts']
+            side = pos['side']  # 'LONG' or 'SHORT'
+            
+            if contracts <= 0:
+                continue
+            
+            try:
+                # 先取消该交易对的所有挂单
+                binance.cancel_all_orders(symbol)
+                results['cancelled'].append(symbol)
+                
+                # 平仓（方向与持仓相反）
+                close_side = 'SELL' if side == 'LONG' else 'BUY'
+                order = binance.create_market_order(symbol, close_side, contracts)
+                results['closed'].append({
+                    'symbol': symbol,
+                    'side': close_side,
+                    'quantity': contracts,
+                    'order_id': order.get('id')
+                })
+                logger.info("已平仓: %s %s %.4f", close_side, symbol, contracts)
+            except Exception as e:
+                error_msg = f"{symbol}: {str(e)}"
+                results['errors'].append(error_msg)
+                logger.error("平仓失败 %s: %s", symbol, e)
+        
+        success = len(results['errors']) == 0
+        return jsonify({
+            'success': success,
+            'message': f"已平仓 {len(results['closed'])} 个持仓",
+            'results': results
+        })
+    except Exception as e:
+        logger.error("一键全平失败: %s", e)
         return jsonify({'error': str(e)}), 500
 
 
