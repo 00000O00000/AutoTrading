@@ -31,7 +31,7 @@ def main():
     engine = TradingEngine(
         binance_api_key=config.BINANCE_API_KEY,
         binance_api_secret=config.BINANCE_API_SECRET,
-        deepseek_api_key=config.DEEPSEEK_API_KEY,
+        ai_api_key=config.AI_1_API_KEY,
         live_trading=True  # 默认以实盘交易模式启动
     )
     

@@ -33,20 +33,15 @@ class Config:
     BINANCE_API_KEY = os.getenv('BINANCE_API_KEY', '')
     BINANCE_API_SECRET = os.getenv('BINANCE_API_SECRET', '')
     
-    # AI 提供商 1 (主用, 保持 DEEPSEEK_* 向后兼容)
-    AI_1_API_KEY = os.getenv('AI_1_API_KEY', os.getenv('DEEPSEEK_API_KEY', ''))
-    AI_1_BASE_URL = os.getenv('AI_1_BASE_URL', os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'))
-    AI_1_MODEL = os.getenv('AI_1_MODEL', os.getenv('DEEPSEEK_MODEL', 'deepseek-chat'))
+    # AI 提供商 1 (主用)
+    AI_1_API_KEY = os.getenv('AI_1_API_KEY', '')
+    AI_1_BASE_URL = os.getenv('AI_1_BASE_URL', 'https://api.deepseek.com/v1')
+    AI_1_MODEL = os.getenv('AI_1_MODEL', 'deepseek-chat')
     
     # AI 提供商 2 (备用, 故障转移)
     AI_2_API_KEY = os.getenv('AI_2_API_KEY', '')
     AI_2_BASE_URL = os.getenv('AI_2_BASE_URL', '')
     AI_2_MODEL = os.getenv('AI_2_MODEL', '')
-    
-    # 向后兼容别名 (已弃用，建议使用 AI_1_*)
-    DEEPSEEK_API_KEY = AI_1_API_KEY
-    DEEPSEEK_BASE_URL = AI_1_BASE_URL
-    DEEPSEEK_MODEL = AI_1_MODEL
     
     # 交易配置
     TRADING_SYMBOLS = os.getenv(

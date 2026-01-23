@@ -31,7 +31,7 @@ class TradingEngine:
         self,
         binance_api_key: str = '',
         binance_api_secret: str = '',
-        deepseek_api_key: str = '',
+        ai_api_key: str = '',
         live_trading: bool = True
     ):
         """
@@ -40,11 +40,11 @@ class TradingEngine:
         Args:
             binance_api_key: 币安 API Key
             binance_api_secret: 币安 API Secret
-            deepseek_api_key: DeepSeek API Key
+            ai_api_key: AI 提供商 API Key
             live_trading: 启用实盘交易 (False = 模拟交易)
         """
         self.data_engine = DataEngine(binance_api_key, binance_api_secret)
-        self.ai_agent = AIAgent(api_key=deepseek_api_key)
+        self.ai_agent = AIAgent(api_key=ai_api_key)
         self.executor = TradeExecutor(self.data_engine.binance)
         
         self.live_trading = live_trading
