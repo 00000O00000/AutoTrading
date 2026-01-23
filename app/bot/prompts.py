@@ -64,18 +64,19 @@ Args:
 - target: string (例如 "ETH/USDT")
 - side: "LONG" 或 "SHORT"
 - count_usdt: string (USDT 金额, 例如 "200")
-- leverage: string (可选，杠杆倍数 1-125，例如 "10")
 - stop_loss_price: string (可选，止损触发价)
 - take_profit_price: string (可选，止盈触发价)
 
-**重要**: 建议在开仓时同时设置止盈止损，这样即使系统离线，订单仍会在币安执行。
+**重要**: 
+- 建议在开仓时同时设置止盈止损，这样即使系统离线，订单仍会在币安执行。
+- 如需调整杠杆，请在**开仓前**先调用 set_leverage 工具。一次回复允许调用多个工具，工具会被依次执行。
 
 Example:
 <tooluse>
 {{
     "name": "trade_in",
-    "info": "MACD 金叉，10倍杠杆做多 ETH，止损3100，止盈3500",
-    "args": {{"target": "ETH/USDT", "side": "LONG", "count_usdt": "200", "leverage": "10", "stop_loss_price": "3100", "take_profit_price": "3500"}}
+    "info": "MACD 金叉做多 ETH，止损3100，止盈3500",
+    "args": {{"target": "ETH/USDT", "side": "LONG", "count_usdt": "200", "stop_loss_price": "3100", "take_profit_price": "3500"}}
 }}
 </tooluse>
 
@@ -240,11 +241,10 @@ LEVERAGE_MAX = 125
 
 TOOL_DEFINITIONS = {
     "trade_in": {
-        "description": "开仓或加仓（支持杠杆和止盈止损）",
+        "description": "开仓或加仓（支持止盈止损）",
         "required_args": ["target", "side", "count_usdt"],
-        "optional_args": ["leverage", "stop_loss_price", "take_profit_price"],
-        "side_values": ["LONG", "SHORT"],
-        "leverage_range": (LEVERAGE_MIN, LEVERAGE_MAX)
+        "optional_args": ["stop_loss_price", "take_profit_price"],
+        "side_values": ["LONG", "SHORT"]
     },
     "close_position": {
         "description": "平仓或减仓",

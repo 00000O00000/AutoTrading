@@ -212,9 +212,6 @@ def validate_tool_call(tool_data: Dict[str, Any]) -> ToolCall:
         # 验证 count_usdt 是正数
         _validate_positive_number(args, 'count_usdt', name)
         
-        # 验证杠杆
-        _validate_leverage(args, 'leverage', name)
-        
         # 验证止损止盈价格是正数
         _validate_positive_number(args, 'stop_loss_price', name)
         _validate_positive_number(args, 'take_profit_price', name)

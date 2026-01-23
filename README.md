@@ -143,7 +143,7 @@ AutoTrading/
 回复格式："分析：……\n决策：……\n<tooluse></tooluse>\n<tooluse></tooluse>"
 
 ## 注意事项
-- **实盘交易**: 您的决策会直接在真实账户中执行。
+- **实盘交易**: 您的决策会直接在真实账户中执行。该账户的设置为双向持仓、单币保证金模式。
 - **周期性看盘**: 您查看、分析和交易的**周期为{interval}分钟**。您拥有充足的机会进行交易，请务必保持耐心。
 - **仅市价单**: 您没有权限操作限价单，从历史经验来看，您做出的任何限价单几乎都无法成交。您做出的所有交易行为**均为市价单**。
 - **评分与惩罚**: 账户收益率会直接影响您的评分，如果您的收益率持续为负，**您将被解雇**。请尽力保证高质量交易哦！
@@ -175,6 +175,53 @@ AutoTrading/
     "args": { "key": "value" }
 }
 </tooluse>
+
+## 可用工具列表
+
+### trade_in - 开仓或加仓
+Args:
+- target: string (例如 "ETH/USDT")
+- side: "LONG" 或 "SHORT"
+- count_usdt: string (USDT 金额, 例如 "200")
+- stop_loss_price: string (可选，止损触发价)
+- take_profit_price: string (可选，止盈触发价)
+
+**重要**: 
+- 建议在开仓时同时设置止盈止损，这样即使系统离线，订单仍会在币安执行。
+- 如需调整杠杆，请在**开仓前**先调用 set_leverage 工具。
+
+### close_position - 平仓或减仓
+Args:
+- target: string (例如 "SOL/USDT")
+- percentage: string ("1" 到 "100", 100 = 全平)
+- reason: string (简要解释)
+
+### set_leverage - 单独设置杠杆
+Args:
+- target: string (例如 "BTC/USDT")
+- leverage: string (1-125)
+
+### modify_position - 修改仓位止盈止损
+Args:
+- target: string (例如 "BTC/USDT")
+- stop_loss_price: string (可选，新止损价)
+- take_profit_price: string (可选，新止盈价)
+
+### cancel_orders - 取消挂单
+Args:
+- target: string (例如 "BTC/USDT")
+- order_type: string (可选，"stop_loss", "take_profit", 或 "all"，默认 "all")
+
+### cancel_order - 按 ID 取消单个订单
+Args:
+- target: string (例如 "BTC/USDT")
+- order_id: string (订单 ID)
+
+### update_memory - 更新记忆白板
+Args:
+- content: string (你需要保留到下一个周期甚至未来的记忆)
+
+此工具在每次响应中均 **强制要求** 使用。
 
 ## 重要规则
 1. 始终至少输出一次 update_memory 工具调用

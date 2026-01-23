@@ -333,9 +333,9 @@ def api_close_all_positions():
                 binance.cancel_all_orders(symbol)
                 results['cancelled'].append(symbol)
                 
-                # 平仓（方向与持仓相反）
+                # 平仓（方向与持仓相反，但 positionSide 保持与持仓一致）
                 close_side = 'SELL' if side == 'LONG' else 'BUY'
-                order = binance.create_market_order(symbol, close_side, contracts)
+                order = binance.create_market_order(symbol, close_side, contracts, side)
                 results['closed'].append({
                     'symbol': symbol,
                     'side': close_side,

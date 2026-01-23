@@ -64,23 +64,24 @@ class TradeExecutor:
         symbol: str,
         side: str,
         amount_usdt: float,
-        leverage: Optional[int] = None,
         stop_loss_price: Optional[float] = None,
         take_profit_price: Optional[float] = None
     ) -> ExecutionResult:
         """
-        开仓或加仓，支持可选的杠杆和止盈止损。
+        开仓或加仓，支持可选的止盈止损。
         
         Args:
             symbol: 交易对 (例如 'BTC/USDT')
             side: 'LONG' (做多) 或 'SHORT' (做空) - 持仓方向
             amount_usdt: 交易金额 (USDT)
-            leverage: 杠杆倍数 (1-125), None 表示保持当前
             stop_loss_price: 可选止损触发价格
             take_profit_price: 可选止盈触发价格
             
         Returns:
             ExecutionResult 包含订单详情
+            
+        Note:
+            如需设置杠杆，请在调用此方法前使用 set_leverage 方法。
         """
         side = side.upper()
         
@@ -96,21 +97,13 @@ class TradeExecutor:
             raise ValueError(f"无效方向: {side}，应为 LONG/SHORT 或 BUY/SELL")
         
         logger.info(
-            "正在开仓: %s %s %.2f USDT (杠杆: %s, 止损: %s, 止盈: %s)",
+            "正在开仓: %s %s %.2f USDT (止损: %s, 止盈: %s)",
             position_side, symbol, amount_usdt, 
-            f"{leverage}x" if leverage else 'default',
             stop_loss_price or 'none',
             take_profit_price or 'none'
         )
         
         try:
-            # 如果指定了则设置杠杆
-            if leverage and leverage > 0:
-                try:
-                    self.client.set_leverage(symbol, leverage)
-                except Exception as e:
-                    # 杠杆设置失败应该中止交易，避免以错误杠杆执行
-                    raise OrderExecutionError(f"设置杠杆失败: {e}")
             
             # 检查余额
             balance = self.client.fetch_balance()

@@ -229,10 +229,6 @@ class TradingEngine:
                 side = tool_call.args.get('side', 'LONG')
                 amount_usdt = float(tool_call.args.get('count_usdt', 0))
                 
-                # 新增参数
-                leverage_str = tool_call.args.get('leverage')
-                leverage = int(leverage_str) if leverage_str else None
-                
                 stop_loss = tool_call.args.get('stop_loss_price')
                 stop_loss_price = float(stop_loss) if stop_loss else None
                 
@@ -244,16 +240,14 @@ class TradingEngine:
                         symbol=symbol,
                         side=side,
                         amount_usdt=amount_usdt,
-                        leverage=leverage,
                         stop_loss_price=stop_loss_price,
                         take_profit_price=take_profit_price
                     )
                     return result.success, result
                 else:
                     logger.info(
-                        "[模拟] TRADE_IN: %s %s, 金额=%.2f USDT, 杠杆=%s, 止损=%s, 止盈=%s",
+                        "[模拟] TRADE_IN: %s %s, 金额=%.2f USDT, 止损=%s, 止盈=%s",
                         side, symbol, amount_usdt,
-                        f"{leverage}x" if leverage else 'default',
                         stop_loss_price or 'none',
                         take_profit_price or 'none'
                     )
