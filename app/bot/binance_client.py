@@ -390,16 +390,29 @@ class BinanceClient:
         return active
         
     def _format_position(self, pos: Dict) -> Dict:
-        """格式化单个持仓数据。"""
+        """格式化单个持仓数据 (双向持仓模式)。"""
         # 移除可能的后缀，如 DOGE/USDT:USDT -> DOGE/USDT
         raw_symbol = pos['symbol']
         symbol = raw_symbol.split(':')[0]
         
-        contracts = float(pos.get('contracts', 0))
+        contracts = abs(float(pos.get('contracts', 0)))
+        
+        # 双向持仓模式下，使用 CCXT 返回的 side 字段判断仓位方向
+        # CCXT 对于 binanceusdm 会返回 'long' 或 'short'
+        raw_side = pos.get('side', '').lower()
+        if raw_side == 'long':
+            position_side = 'LONG'
+        elif raw_side == 'short':
+            position_side = 'SHORT'
+        else:
+            # 回退到旧逻辑（单向模式兼容，理论上不应该走到这里）
+            position_side = 'LONG' if float(pos.get('contracts', 0)) > 0 else 'SHORT'
+            logger.warning("无法从 CCXT 获取 side 字段，使用 contracts 符号判断: %s", position_side)
+        
         return {
             'symbol': symbol,  # 标准化 DOMAIN/QUOTE
-            'side': 'LONG' if contracts > 0 else 'SHORT',
-            'contracts': abs(contracts),
+            'side': position_side,
+            'contracts': contracts,
             'notional': pos.get('notional', 0),
             'entry_price': pos.get('entryPrice', 0),
             'mark_price': pos.get('markPrice', 0),
@@ -492,15 +505,17 @@ class BinanceClient:
         self,
         symbol: str,
         side: str,
-        quantity: float
+        quantity: float,
+        position_side: str
     ) -> Dict:
         """
-        创建市价单。
+        创建市价单 (双向持仓模式)。
         
         Args:
             symbol: 交易对 (例如 'BTC/USDT')
             side: 'buy' (买) 或 'sell' (卖)
             quantity: 订单数量 (基础货币)
+            position_side: 持仓方向 'LONG' 或 'SHORT' (必需)
             
         Returns:
             交易所的订单响应
@@ -508,15 +523,20 @@ class BinanceClient:
         self._require_auth()
         
         logger.info(
-            "正在创建市价单: %s %s %.8f",
-            side.upper(), symbol, quantity
+            "正在创建市价单: %s %s %.8f (positionSide=%s)",
+            side.upper(), symbol, quantity, position_side
         )
+        
+        params = {
+            'positionSide': position_side.upper(),
+        }
         
         order = self.exchange.create_order(
             symbol=symbol,
             type='market',
             side=side.lower(),
-            amount=quantity
+            amount=quantity,
+            params=params
         )
         
         logger.info("订单已创建: %s", order.get('id'))
@@ -527,19 +547,21 @@ class BinanceClient:
         symbol: str,
         side: str,
         quantity: float,
-        stop_price: float
+        stop_price: float,
+        position_side: str
     ) -> Dict:
         """
-        创建市价止损单。
+        创建市价止损单 (双向持仓模式)。
         
-        多头持仓: side='sell', 当价格跌至 stop_price 时触发
-        空头持仓: side='buy', 当价格涨至 stop_price 时触发
+        多头持仓: side='sell', position_side='LONG', 当价格跌至 stop_price 时触发
+        空头持仓: side='buy', position_side='SHORT', 当价格涨至 stop_price 时触发
         
         Args:
             symbol: 交易对
             side: 'buy' 或 'sell' (与持仓方向相反)
             quantity: 订单数量
             stop_price: 触发价格
+            position_side: 持仓方向 'LONG' 或 'SHORT' (必需)
             
         Returns:
             交易所的订单响应
@@ -551,20 +573,22 @@ class BinanceClient:
         stop_price = self.truncate_to_precision(stop_price, precision['price'])
         
         logger.info(
-            "正在创建止损单: %s %s %.8f @ %.2f",
-            side.upper(), symbol, quantity, stop_price
+            "正在创建止损单: %s %s %.8f @ %.2f (positionSide=%s)",
+            side.upper(), symbol, quantity, stop_price, position_side
         )
         
-        # 使用币安的 STOP_MARKET 订单类型
+        # 使用币安的 STOP_MARKET 订单类型 (双向持仓模式)
+        params = {
+            'stopPrice': stop_price,
+            'positionSide': position_side.upper(),
+        }
+        
         order = self.exchange.create_order(
             symbol=symbol,
             type='STOP_MARKET',
             side=side.lower(),
             amount=quantity,
-            params={
-                'stopPrice': stop_price,
-                'reduceOnly': True  # Only reduce position, don't flip
-            }
+            params=params
         )
         
         logger.info("止损单已创建: %s", order.get('id'))
@@ -737,19 +761,21 @@ class BinanceClient:
         symbol: str,
         side: str,
         quantity: float,
-        take_profit_price: float
+        take_profit_price: float,
+        position_side: str
     ) -> Dict:
         """
-        创建市价止盈单。
+        创建市价止盈单 (双向持仓模式)。
         
-        多头持仓: side='sell', 当价格涨至 take_profit_price 时触发
-        空头持仓: side='buy', 当价格跌至 take_profit_price 时触发
+        多头持仓: side='sell', position_side='LONG', 当价格涨至 take_profit_price 时触发
+        空头持仓: side='buy', position_side='SHORT', 当价格跌至 take_profit_price 时触发
         
         Args:
             symbol: 交易对
             side: 'buy' 或 'sell' (与持仓方向相反)
             quantity: 订单数量
             take_profit_price: 触发价格
+            position_side: 持仓方向 'LONG' 或 'SHORT' (必需)
             
         Returns:
             交易所的订单响应
@@ -761,20 +787,22 @@ class BinanceClient:
         take_profit_price = self.truncate_to_precision(take_profit_price, precision['price'])
         
         logger.info(
-            "正在创建止盈单: %s %s %.8f @ %.2f",
-            side.upper(), symbol, quantity, take_profit_price
+            "正在创建止盈单: %s %s %.8f @ %.2f (positionSide=%s)",
+            side.upper(), symbol, quantity, take_profit_price, position_side
         )
         
-        # 使用币安的 TAKE_PROFIT_MARKET 订单类型
+        # 使用币安的 TAKE_PROFIT_MARKET 订单类型 (双向持仓模式)
+        params = {
+            'stopPrice': take_profit_price,
+            'positionSide': position_side.upper(),
+        }
+        
         order = self.exchange.create_order(
             symbol=symbol,
             type='TAKE_PROFIT_MARKET',
             side=side.lower(),
             amount=quantity,
-            params={
-                'stopPrice': take_profit_price,
-                'reduceOnly': True
-            }
+            params=params
         )
         
         logger.info("止盈单已创建: %s", order.get('id'))

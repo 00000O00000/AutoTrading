@@ -102,7 +102,8 @@ class TradeExecutor:
                 try:
                     self.client.set_leverage(symbol, leverage)
                 except Exception as e:
-                    logger.warning("设置杠杆失败，使用当前杠杆: %s", e)
+                    # 杠杆设置失败应该中止交易，避免以错误杠杆执行
+                    raise OrderExecutionError(f"设置杠杆失败: {e}")
             
             # 检查余额
             balance = self.client.fetch_balance()
@@ -133,13 +134,17 @@ class TradeExecutor:
             if quantity <= 0:
                 raise ValueError(f"{amount_usdt} USDT 计算出的数量为 0")
             
+            # 确定 positionSide (双向持仓模式必需)
+            # BUY 开多 -> LONG, SELL 开空 -> SHORT
+            position_side = 'LONG' if side == 'BUY' else 'SHORT'
+            
             # 执行市价单
-            order = self.client.create_market_order(symbol, side, quantity)
+            order = self.client.create_market_order(symbol, side, quantity, position_side)
             
             # 获取成交价
             executed_price = float(order.get('average', 0) or order.get('price', 0))
             
-            # 止盈止損单的相反方向
+            # 止盈止損单的相反方向，但 positionSide 保持与仓位一致
             opposite_side = 'SELL' if side == 'BUY' else 'BUY'
             
             sl_failed = False
@@ -151,7 +156,7 @@ class TradeExecutor:
             if stop_loss_price and stop_loss_price > 0:
                 try:
                     sl_order = self.client.create_stop_loss_order(
-                        symbol, opposite_side, quantity, stop_loss_price
+                        symbol, opposite_side, quantity, stop_loss_price, position_side
                     )
                     sl_order_id = sl_order.get('id')
                     logger.info("止损单已设置 @ %.2f (ID: %s)", stop_loss_price, sl_order_id)
@@ -163,7 +168,7 @@ class TradeExecutor:
             if take_profit_price and take_profit_price > 0:
                 try:
                     tp_order = self.client.create_take_profit_order(
-                        symbol, opposite_side, quantity, take_profit_price
+                        symbol, opposite_side, quantity, take_profit_price, position_side
                     )
                     tp_order_id = tp_order.get('id')
                     logger.info("止盈单已设置 @ %.2f (ID: %s)", take_profit_price, tp_order_id)
@@ -274,8 +279,8 @@ class TradeExecutor:
                 # 部分平仓提醒
                 logger.info("部分平仓 %d%% - 现有止损订单保持有效", percentage)
 
-            # 执行平仓单
-            order = self.client.create_market_order(symbol, close_side, close_quantity)
+            # 执行平仓单 (双向持仓模式需要传递 positionSide)
+            order = self.client.create_market_order(symbol, close_side, close_quantity, position_side)
             
             executed_price = float(order.get('average', 0) or order.get('price', 0))
             
@@ -405,21 +410,21 @@ class TradeExecutor:
             if take_profit_price:
                 self.client.cancel_orders_by_type(symbol, 'take_profit')
             
-            # 创建新止损
+            # 创建新止损 (传递 positionSide)
             if stop_loss_price and stop_loss_price > 0:
                 try:
                     self.client.create_stop_loss_order(
-                        symbol, opposite_side, quantity, stop_loss_price
+                        symbol, opposite_side, quantity, stop_loss_price, position_side
                     )
                     logger.info("新止损已设置 @ %.2f", stop_loss_price)
                 except Exception as e:
                     logger.warning("设置止损失败: %s", e)
             
-            # 创建新止盈
+            # 创建新止盈 (传递 positionSide)
             if take_profit_price and take_profit_price > 0:
                 try:
                     self.client.create_take_profit_order(
-                        symbol, opposite_side, quantity, take_profit_price
+                        symbol, opposite_side, quantity, take_profit_price, position_side
                     )
                     logger.info("新止盈已设置 @ %.2f", take_profit_price)
                 except Exception as e:
