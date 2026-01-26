@@ -16,7 +16,8 @@ from app.bot.binance_client import (
     BinanceClient, 
     TickerData, 
     OrderBookData, 
-    FundingRateData
+    FundingRateData,
+    LongShortRatioData
 )
 from app.bot.macro_data import MacroDataClient
 from app.bot.indicators import (
@@ -42,10 +43,13 @@ class AssetContext:
     order_book: OrderBookData
     funding_rate: FundingRateData
     indicators: IndicatorSummary
+    # 多空持仓比率
+    long_short_ratio: LongShortRatioData = None
     # 多时间周期 K 线数据 (用于 AI 上下文)
     ohlcv_1m: List[List] = None   # 1 分钟 K 线
     ohlcv_15m: List[List] = None  # 15 分钟 K 线
     ohlcv_1h: List[List] = None   # 1 小时 K 线
+    ohlcv_4h: List[List] = None   # 4 小时 K 线
     ohlcv_1d: List[List] = None   # 1 日 K 线
 
 
@@ -181,11 +185,28 @@ class DataEngine:
                 next_funding_time=0
             )
         
+        # 获取多空持仓比率 (可选 - 失败时使用默认值)
+        try:
+            long_short_ratio = self.binance.fetch_long_short_ratio(symbol)
+        except Exception as e:
+            logger.debug("无法获取 %s 多空比: %s", symbol, e)
+            import time as _time
+            long_short_ratio = LongShortRatioData(
+                symbol=symbol,
+                long_account_ratio=0.5,
+                short_account_ratio=0.5,
+                long_short_ratio=1.0,
+                top_trader_long_ratio=0.5,
+                top_trader_short_ratio=0.5,
+                timestamp=int(_time.time() * 1000)
+            )
+        
         # 获取多时间周期 OHLCV (按照 Project Plan 6.1 规格)
         TIMEFRAMES = {
             '1m': 100,   # 1 分钟，100 根
             '15m': 100,  # 15 分钟，100 根
             '1h': 100,   # 1 小时，100 根
+            '4h': 100,   # 4 小时，100 根 (用于确认更大周期趋势)
             '1d': 100    # 1 日，100 根
         }
         
@@ -211,9 +232,11 @@ class DataEngine:
             order_book=order_book,
             funding_rate=funding_rate,
             indicators=indicators,
+            long_short_ratio=long_short_ratio,
             ohlcv_1m=ohlcv_data.get('1m', []),
             ohlcv_15m=ohlcv_data.get('15m', []),
             ohlcv_1h=ohlcv_data.get('1h', []),
+            ohlcv_4h=ohlcv_data.get('4h', []),
             ohlcv_1d=ohlcv_data.get('1d', [])
         )
     
@@ -358,24 +381,49 @@ class DataEngine:
         sections.append("[ASSETS ANALYSIS]")
         sections.append("=" * 10)
         
+        # 使用配置的 K 线显示数量
+        kline_limit = self.config.KLINE_DISPLAY_LIMIT
+        
         for symbol, asset in context.assets.items():
             sections.append("")
             sections.append(format_indicator_summary(asset.indicators))
             
-            # 添加多时间周期 K 线数据
-            # 输出 100 根 K 线给 AI
+            # 添加多时间周期 K 线数据 (含 RSI/MACD)
             if asset.ohlcv_1d:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1d, '1D', limit=100))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1d, '1d', limit=kline_limit))
+            if asset.ohlcv_4h:
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_4h, '4h', limit=kline_limit))
             if asset.ohlcv_1h:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1h, '1H', limit=100))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1h, '1h', limit=kline_limit))
             if asset.ohlcv_15m:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_15m, '15m', limit=100))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_15m, '15m', limit=kline_limit))
             if asset.ohlcv_1m:
-                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1m, '1m', limit=100))
+                sections.append(format_ohlcv_for_prompt(asset.ohlcv_1m, '1m', limit=kline_limit))
             
-            # 添加订单簿和资金费率信息
-            sections.append(f"  OrderBook: Imbalance {asset.order_book.bid_ask_imbalance:+.2f}|Spread ${asset.order_book.spread:.4f}")
-            sections.append(f"  Funding: {asset.funding_rate.funding_rate_annualized:+.2f}% (annualized)")
+            # 增强版市场深度信息
+            ob = asset.order_book
+            depth_info = f"  [Market Depth] Imbalance: {ob.bid_ask_imbalance:+.2f} | Spread: ${ob.spread:.4f}"
+            depth_info += f" | Bid Vol: {ob.cumulative_bid_volume:,.2f} | Ask Vol: {ob.cumulative_ask_volume:,.2f}"
+            sections.append(depth_info)
+            
+            # 挂单墙信息 (如果检测到)
+            if ob.bid_wall_price:
+                sections.append(f"    Bid Wall: ${ob.bid_wall_price:,.2f} ({ob.bid_wall_volume:,.2f})")
+            if ob.ask_wall_price:
+                sections.append(f"    Ask Wall: ${ob.ask_wall_price:,.2f} ({ob.ask_wall_volume:,.2f})")
+            
+            # 多空持仓比率
+            if asset.long_short_ratio:
+                ls = asset.long_short_ratio
+                sentiment = "多头拥挤" if ls.long_short_ratio > 1.5 else ("空头拥挤" if ls.long_short_ratio < 0.67 else "均衡")
+                sections.append(
+                    f"  [Sentiment] L/S Ratio: {ls.long_short_ratio:.2f} ({sentiment}) | "
+                    f"Accounts: Long {ls.long_account_ratio*100:.1f}% Short {ls.short_account_ratio*100:.1f}% | "
+                    f"Top Traders: Long {ls.top_trader_long_ratio*100:.1f}%"
+                )
+            
+            # 资金费率
+            sections.append(f"  [Funding] {asset.funding_rate.funding_rate_annualized:+.2f}% (annualized)")
         
         # 账户部分
         if context.account_balance:

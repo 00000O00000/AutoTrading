@@ -57,6 +57,9 @@ class Config:
     # 每个时间周期获取的 K 线数量
     CANDLE_LIMIT = 300
     
+    # AI Prompt 中显示的 K 线数量 (每个时间周期)
+    KLINE_DISPLAY_LIMIT = int(os.getenv('KLINE_DISPLAY_LIMIT', '100'))
+    
     # 控制台密码 (用于设置页)
     CONSOLE_PASSWORD = os.getenv('CONSOLE_PASSWORD', 'admin')
     

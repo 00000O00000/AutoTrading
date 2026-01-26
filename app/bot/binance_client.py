@@ -23,6 +23,13 @@ class OrderBookData:
     bid_ask_imbalance: float  # 正值 = 买单更多，负值 = 卖单更多
     spread: float
     mid_price: float
+    # 增强字段：市场深度分析
+    cumulative_bid_volume: float = 0.0  # 累积买单量
+    cumulative_ask_volume: float = 0.0  # 累积卖单量
+    bid_wall_price: Optional[float] = None  # 买单墙价格
+    bid_wall_volume: float = 0.0  # 买单墙挂单量
+    ask_wall_price: Optional[float] = None  # 卖单墙价格
+    ask_wall_volume: float = 0.0  # 卖单墙挂单量
 
 
 @dataclass
@@ -44,6 +51,18 @@ class FundingRateData:
     funding_rate: float
     funding_rate_annualized: float
     next_funding_time: int
+
+
+@dataclass
+class LongShortRatioData:
+    """多空持仓比率数据。"""
+    symbol: str
+    long_account_ratio: float  # 多头账户占比 (0-1)
+    short_account_ratio: float  # 空头账户占比 (0-1)
+    long_short_ratio: float  # 多空比 (>1 多头多, <1 空头多)
+    top_trader_long_ratio: float  # 大户多头占比 (0-1)
+    top_trader_short_ratio: float  # 大户空头占比 (0-1)
+    timestamp: int
 
 
 class BinanceClient:
@@ -224,29 +243,29 @@ class BinanceClient:
             result[symbol] = self.fetch_ticker(symbol)
         return result
     
-    def fetch_order_book(self, symbol: str, depth: int = 10) -> OrderBookData:
+    def fetch_order_book(self, symbol: str, depth: int = 20) -> OrderBookData:
         """
-        获取订单簿并计算买卖不平衡度。
+        获取订单簿并计算买卖不平衡度和挂单墙。
         
         Args:
             symbol: 交易对
-            depth: 获取深度 (默认 10)
+            depth: 获取深度 (默认 20，用于挂单墙检测)
             
         Returns:
-            OrderBookData 包含不平衡度指标
+            OrderBookData 包含不平衡度指标和挂单墙分析
         """
         order_book = self.exchange.fetch_order_book(symbol, limit=depth)
         
         bids = order_book['bids'][:depth]
         asks = order_book['asks'][:depth]
         
-        # 计算不平衡度：总买单量 vs 总卖单量
+        # 计算累积挂单量
         bid_volume = sum(bid[1] for bid in bids) if bids else 0
         ask_volume = sum(ask[1] for ask in asks) if asks else 0
         total_volume = bid_volume + ask_volume
         
+        # 计算不平衡度：范围 -1 (全卖) 到 +1 (全买)
         if total_volume > 0:
-            # 范围: -1 (全卖) 到 +1 (全买)
             imbalance = (bid_volume - ask_volume) / total_volume
         else:
             imbalance = 0.0
@@ -256,13 +275,47 @@ class BinanceClient:
         spread = best_ask - best_bid if best_bid and best_ask else 0
         mid_price = (best_bid + best_ask) / 2 if best_bid and best_ask else 0
         
+        # 检测挂单墙：找到单笔挂单量超过平均值 3 倍的价位
+        bid_wall_price, bid_wall_volume = self._detect_order_wall(bids)
+        ask_wall_price, ask_wall_volume = self._detect_order_wall(asks)
+        
         return OrderBookData(
             bids=bids,
             asks=asks,
             bid_ask_imbalance=imbalance,
             spread=spread,
-            mid_price=mid_price
+            mid_price=mid_price,
+            cumulative_bid_volume=bid_volume,
+            cumulative_ask_volume=ask_volume,
+            bid_wall_price=bid_wall_price,
+            bid_wall_volume=bid_wall_volume,
+            ask_wall_price=ask_wall_price,
+            ask_wall_volume=ask_wall_volume
         )
+    
+    def _detect_order_wall(self, orders: List[List[float]], threshold: float = 3.0) -> tuple:
+        """
+        检测订单墙：单笔挂单量超过平均值 N 倍的价位。
+        
+        Args:
+            orders: 订单列表 [[price, volume], ...]
+            threshold: 判定为挂单墙的倍数阈值
+            
+        Returns:
+            Tuple of (wall_price, wall_volume) 或 (None, 0)
+        """
+        if not orders or len(orders) < 3:
+            return None, 0.0
+        
+        volumes = [o[1] for o in orders]
+        avg_volume = sum(volumes) / len(volumes)
+        
+        # 找到最大的超过阈值的挂单
+        for price, volume in orders:
+            if volume >= avg_volume * threshold:
+                return price, volume
+        
+        return None, 0.0
     
     def fetch_funding_rate(self, symbol: str) -> FundingRateData:
         """
@@ -289,6 +342,85 @@ class BinanceClient:
             funding_rate_annualized=annualized,
             next_funding_time=next_time
         )
+    
+    def fetch_long_short_ratio(self, symbol: str) -> LongShortRatioData:
+        """
+        获取多空持仓比率数据。
+        
+        调用币安公开 API，获取全市场多空账户比和大户持仓比。
+        
+        Args:
+            symbol: 交易对 (例如 'BTC/USDT')
+            
+        Returns:
+            LongShortRatioData 包含多空比率数据
+        """
+        import time
+        binance_symbol = symbol.replace('/', '')
+        
+        try:
+            # 1. 获取全市场多空账户比
+            global_ratio = self.exchange.fapiDataGetGlobalLongShortAccountRatio({
+                'symbol': binance_symbol,
+                'period': '5m',
+                'limit': 1
+            })
+            
+            if global_ratio and len(global_ratio) > 0:
+                latest = global_ratio[0]
+                long_account = float(latest.get('longAccount', 0.5))
+                short_account = float(latest.get('shortAccount', 0.5))
+                ls_ratio = float(latest.get('longShortRatio', 1.0))
+                timestamp = int(latest.get('timestamp', time.time() * 1000))
+            else:
+                long_account = 0.5
+                short_account = 0.5
+                ls_ratio = 1.0
+                timestamp = int(time.time() * 1000)
+            
+            # 2. 获取大户多空持仓比
+            try:
+                top_ratio = self.exchange.fapiDataGetTopLongShortPositionRatio({
+                    'symbol': binance_symbol,
+                    'period': '5m',
+                    'limit': 1
+                })
+                
+                if top_ratio and len(top_ratio) > 0:
+                    top_latest = top_ratio[0]
+                    # 兼容两种 API 响应格式: longPosition (持仓比) 或 longAccount (账户比)
+                    top_long = float(top_latest.get('longPosition', top_latest.get('longAccount', 0.5)))
+                    top_short = float(top_latest.get('shortPosition', top_latest.get('shortAccount', 0.5)))
+                else:
+                    top_long = 0.5
+                    top_short = 0.5
+            except Exception as e:
+                logger.debug("获取大户持仓比失败: %s", e)
+                top_long = 0.5
+                top_short = 0.5
+            
+            return LongShortRatioData(
+                symbol=symbol,
+                long_account_ratio=long_account,
+                short_account_ratio=short_account,
+                long_short_ratio=ls_ratio,
+                top_trader_long_ratio=top_long,
+                top_trader_short_ratio=top_short,
+                timestamp=timestamp
+            )
+            
+        except Exception as e:
+            logger.warning("获取多空持仓比失败 %s: %s", symbol, e)
+            # 返回默认值
+            return LongShortRatioData(
+                symbol=symbol,
+                long_account_ratio=0.5,
+                short_account_ratio=0.5,
+                long_short_ratio=1.0,
+                top_trader_long_ratio=0.5,
+                top_trader_short_ratio=0.5,
+                timestamp=int(time.time() * 1000)
+            )
     
     def fetch_top_gainers_losers(self, limit: int = 50) -> Dict[str, Any]:
         """

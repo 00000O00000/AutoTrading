@@ -120,6 +120,27 @@ def _sma(series: pd.Series, period: int) -> pd.Series:
     return series.rolling(window=period).mean()
 
 
+def _macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> Tuple[pd.Series, pd.Series, pd.Series]:
+    """
+    计算 MACD 指标。
+    
+    Args:
+        series: 价格序列
+        fast: 快线周期 (默认 12)
+        slow: 慢线周期 (默认 26)
+        signal: 信号线周期 (默认 9)
+        
+    Returns:
+        Tuple of (MACD 线, 信号线, 柱状图)
+    """
+    ema_fast = _ema(series, fast)
+    ema_slow = _ema(series, slow)
+    macd_line = ema_fast - ema_slow
+    signal_line = _ema(macd_line, signal)
+    histogram = macd_line - signal_line
+    return macd_line, signal_line, histogram
+
+
 def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
     """
     计算相对强弱指数 (RSI)。
@@ -569,17 +590,19 @@ def format_indicator_summary(summary: IndicatorSummary) -> str:
 - RSI: {summary.rsi:.1f} ({summary.rsi_condition}) | Divergence: {summary.divergence.divergence_type}"""
 
 
-def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 20) -> str:
+def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 100) -> str:
     """
     格式化 K 线数据供 AI 上下文使用。
     
-    对于 15m 周期，每根 K 线附带指标 (RSI, BB%B, EMA20)。
-    其他周期仅显示基础数据 (Close, Vol, MA5, MA60)。
+    不同周期使用不同的格式：
+    - 1m: 基础格式 (Close, Vol, MA5, MA60)
+    - 15m: 含短周期指标 (RSI, BB%B, EMA20)
+    - 1h/4h/1d: 含趋势指标 (RSI, MACD)
     
     Args:
         ohlcv: K 线数据列表 [[timestamp, open, high, low, close, volume], ...]
-        timeframe: 时间周期标识 (1m, 15m, 1h, 1d)
-        limit: 输出的 K 线数量
+        timeframe: 时间周期标识 (1m, 15m, 1h, 4h, 1d)
+        limit: 输出的 K 线数量 (默认 100，可通过配置覆盖)
         
     Returns:
         格式化的 K 线字符串
@@ -590,31 +613,36 @@ def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 20) -> str
     # 确保不超过实际数据量
     actual_limit = min(limit, len(ohlcv))
     
-    # 提取价格数据
-    closes = [c[4] for c in ohlcv]
-    highs = [c[2] for c in ohlcv]
-    lows = [c[3] for c in ohlcv]
-    
     # 选择时间格式
     if timeframe == '1d':
         time_fmt = '%m/%d'
-    elif timeframe in ('1h', '15m'):
+    elif timeframe in ('4h', '1h', '15m'):
         time_fmt = '%m/%d %H:%M'
     else:
         time_fmt = '%H:%M'
     
-    # 15m 周期：附带更多指标
+    # 15m 周期：短周期指标 (RSI, BB%B, EMA20)
     if timeframe == '15m' and len(ohlcv) >= 20:
-        return _format_15m_with_indicators(ohlcv, actual_limit, time_fmt)
+        return _format_with_short_indicators(ohlcv, timeframe, actual_limit, time_fmt)
     
-    # 其他周期：简洁格式
+    # 1h/4h/1d 周期：趋势指标 (RSI, MACD)
+    if timeframe in ('1h', '4h', '1d') and len(ohlcv) >= 30:
+        return _format_with_trend_indicators(ohlcv, timeframe, actual_limit, time_fmt)
+    
+    # 1m 和数据不足的情况：基础格式
+    return _format_basic(ohlcv, timeframe, actual_limit, time_fmt)
+
+
+def _format_basic(ohlcv: list, timeframe: str, limit: int, time_fmt: str) -> str:
+    """基础格式：Close, Vol, MA5, MA60"""
+    closes = [c[4] for c in ohlcv]
     ma5 = calc_sma(closes, 5)
     ma60 = calc_sma(closes, 60) if len(closes) >= 60 else [None] * len(closes)
     
-    lines = [f"[{timeframe} K线 (最近{actual_limit}根)]"]
+    lines = [f"[{timeframe} K线 (最近{limit}根)]"]
     lines.append("Time | Close | Vol | MA5 | MA60")
     
-    for i in range(-actual_limit, 0):
+    for i in range(-limit, 0):
         candle = ohlcv[i]
         ts = format_time(from_timestamp(candle[0], in_milliseconds=True), time_fmt)
         close = candle[4]
@@ -628,13 +656,12 @@ def format_ohlcv_for_prompt(ohlcv: list, timeframe: str, limit: int = 20) -> str
     return "\n".join(lines)
 
 
-def _format_15m_with_indicators(ohlcv: list, limit: int, time_fmt: str) -> str:
+def _format_with_short_indicators(ohlcv: list, timeframe: str, limit: int, time_fmt: str) -> str:
     """
-    为 15m K 线格式化，附带逐根指标。
+    15m 格式：附带短周期指标。
     
     指标包括：RSI(14), BB%B(20,2), EMA20
     """
-    # 创建 DataFrame 用于计算指标
     df = create_dataframe(ohlcv)
     
     # 计算指标序列
@@ -646,11 +673,10 @@ def _format_15m_with_indicators(ohlcv: list, limit: int, time_fmt: str) -> str:
     percent_b = (df['close'] - lower) / (upper - lower)
     percent_b = percent_b.fillna(0.5)
     
-    lines = [f"[15m K线 (最近{limit}根) - 含指标]"]
+    lines = [f"[{timeframe} K线 (最近{limit}根) - 含指标]"]
     lines.append("Time | Close | RSI | BB%B | EMA20 | Vol")
     
     for i in range(-limit, 0):
-        idx = df.index[i]
         candle = ohlcv[i]
         ts = format_time(from_timestamp(candle[0], in_milliseconds=True), time_fmt)
         close = candle[4]
@@ -662,18 +688,19 @@ def _format_15m_with_indicators(ohlcv: list, limit: int, time_fmt: str) -> str:
         
         # 格式化 RSI 状态标记
         rsi_str = f"{rsi_val:.0f}" if not pd.isna(rsi_val) else "N/A"
-        if rsi_val >= 70:
-            rsi_str += "↑"  # 超买
-        elif rsi_val <= 30:
-            rsi_str += "↓"  # 超卖
+        if not pd.isna(rsi_val):
+            if rsi_val >= 70:
+                rsi_str += "↑"  # 超买
+            elif rsi_val <= 30:
+                rsi_str += "↓"  # 超卖
         
-        # 格式化 %B (0=下轨, 0.5=中轨, 1=上轨)
+        # 格式化 %B
         if pd.isna(bb_val):
             bb_str = "N/A"
         elif bb_val > 1:
-            bb_str = f"{bb_val:.2f}↑"  # 突破上轨
+            bb_str = f"{bb_val:.2f}↑"
         elif bb_val < 0:
-            bb_str = f"{bb_val:.2f}↓"  # 突破下轨
+            bb_str = f"{bb_val:.2f}↓"
         else:
             bb_str = f"{bb_val:.2f}"
         
@@ -682,4 +709,68 @@ def _format_15m_with_indicators(ohlcv: list, limit: int, time_fmt: str) -> str:
         lines.append(f"{ts} | ${close:,.2f} | {rsi_str} | {bb_str} | {ema20_str} | {volume:,.0f}")
     
     return "\n".join(lines)
+
+
+def _format_with_trend_indicators(ohlcv: list, timeframe: str, limit: int, time_fmt: str) -> str:
+    """
+    1h/4h/1d 格式：附带趋势指标。
+    
+    指标包括：RSI(14), MACD(12,26,9)
+    用于确认更大周期的动量和背离情况。
+    """
+    df = create_dataframe(ohlcv)
+    
+    # 计算指标序列
+    rsi_series = _rsi(df['close'], 14)
+    macd_line, signal_line, histogram = _macd(df['close'], 12, 26, 9)
+    
+    lines = [f"[{timeframe} K线 (最近{limit}根) - 含趋势指标]"]
+    lines.append("Time | Close | RSI | MACD | Signal | Hist | Vol")
+    
+    for i in range(-limit, 0):
+        candle = ohlcv[i]
+        ts = format_time(from_timestamp(candle[0], in_milliseconds=True), time_fmt)
+        close = candle[4]
+        volume = candle[5]
+        
+        rsi_val = rsi_series.iloc[i]
+        macd_val = macd_line.iloc[i]
+        signal_val = signal_line.iloc[i]
+        hist_val = histogram.iloc[i]
+        
+        # 格式化 RSI
+        rsi_str = f"{rsi_val:.0f}" if not pd.isna(rsi_val) else "N/A"
+        if not pd.isna(rsi_val):
+            if rsi_val >= 70:
+                rsi_str += "↑"
+            elif rsi_val <= 30:
+                rsi_str += "↓"
+        
+        # 格式化 MACD (根据价格缩放显示)
+        if pd.isna(macd_val) or pd.isna(signal_val) or pd.isna(hist_val):
+            macd_str = "N/A"
+            signal_str = "N/A"
+            hist_str = "N/A"
+        else:
+            macd_str = f"{macd_val:+.2f}"
+            signal_str = f"{signal_val:+.2f}"
+            # 柱状图带趋势标记 (第一根 K 线没有前一根对比)
+            prev_hist = histogram.iloc[i-1] if i > -limit else hist_val
+            if pd.isna(prev_hist):
+                prev_hist = hist_val
+            if hist_val > 0:
+                hist_str = f"{hist_val:+.2f}▲" if hist_val > prev_hist else f"{hist_val:+.2f}"
+            else:
+                hist_str = f"{hist_val:+.2f}▼" if hist_val < prev_hist else f"{hist_val:+.2f}"
+        
+        lines.append(f"{ts} | ${close:,.2f} | {rsi_str} | {macd_str} | {signal_str} | {hist_str} | {volume:,.0f}")
+    
+    return "\n".join(lines)
+
+
+# 保留旧函数名作为别名，保持向后兼容
+def _format_15m_with_indicators(ohlcv: list, limit: int, time_fmt: str) -> str:
+    """向后兼容的别名。"""
+    return _format_with_short_indicators(ohlcv, '15m', limit, time_fmt)
+
 
