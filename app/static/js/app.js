@@ -323,7 +323,8 @@ function initEquityChart() {
 }
 
 async function updateEquityChart() {
-    const data = await fetchAPI('/equity-history?limit=100');
+    // 不传 limit 参数表示获取所有历史数据
+    const data = await fetchAPI('/equity-history');
     if (!data || !data.data || !equityChart) return;
 
     const labels = data.data.map(d => {

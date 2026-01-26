@@ -420,9 +420,10 @@ def api_account_summary():
 def api_equity_history():
     """获取收益历史数据（用于曲线图）。"""
     try:
-        limit = request.args.get('limit', 100, type=int)
-        # 限制最大查询数量防止性能问题
-        limit = min(limit, 1000)
+        limit = request.args.get('limit', 0, type=int)
+        # limit=0 表示不限制，获取所有数据
+        if limit <= 0:
+            limit = None  # 传 None 给 get_history 表示不限制
         snapshots = EquitySnapshot.get_history(limit)
         
         # 获取基准净值

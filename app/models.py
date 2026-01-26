@@ -179,10 +179,16 @@ class EquitySnapshot(db.Model):
         return cls.query.order_by(cls.timestamp.asc()).first()
     
     @classmethod
-    def get_history(cls, limit: int = 100):
-        """获取净值历史记录（按时间升序）。"""
-        # 先降序取最近 N 条，再反转为升序（简单且兼容所有数据库）
-        records = cls.query.order_by(cls.timestamp.desc()).limit(limit).all()
+    def get_history(cls, limit: int = None):
+        """获取净值历史记录（按时间升序）。
+        
+        Args:
+            limit: 最大记录数，None 表示不限制
+        """
+        query = cls.query.order_by(cls.timestamp.desc())
+        if limit is not None:
+            query = query.limit(limit)
+        records = query.all()
         return records[::-1]
     
     @classmethod
