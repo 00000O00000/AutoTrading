@@ -95,9 +95,9 @@
 }
 
 .btn-success {
-    background: var(--up-color);
+    background: var(--green);
     color: #fff;
-    border-color: var(--up-color);
+    border-color: var(--green);
 }
 
 .btn-success:hover {
@@ -105,9 +105,9 @@
 }
 
 .btn-danger {
-    background: var(--down-color);
+    background: var(--red);
     color: #fff;
-    border-color: var(--down-color);
+    border-color: var(--red);
 }
 
 .btn-danger:hover {
@@ -148,7 +148,7 @@
 
 .form-control:focus {
     outline: none;
-    border-color: var(--up-color);
+    border-color: var(--green);
 }
 
 textarea.form-control {
@@ -167,15 +167,15 @@ textarea.form-control {
 }
 
 .badge-success {
-    background: var(--up-color);
+    background: var(--green);
     color: #fff;
-    border-color: var(--up-color);
+    border-color: var(--green);
 }
 
 .badge-danger {
-    background: var(--down-color);
+    background: var(--red);
     color: #fff;
-    border-color: var(--down-color);
+    border-color: var(--red);
 }
 
 .badge-warning {
@@ -219,12 +219,16 @@ textarea.form-control {
 }
 
 .status-dot.running {
-    background: var(--up-color);
+    background: var(--green);
     animation: pulse 1.5s infinite;
 }
 
 .status-dot.stopped {
-    background: var(--down-color);
+    background: var(--red);
+}
+
+.status-dot.disconnected {
+    background: var(--text-secondary);
 }
 
 @keyframes pulse {
@@ -277,7 +281,7 @@ textarea.form-control {
 }
 
 input:checked+.toggle-slider {
-    background-color: var(--up-color);
+    background-color: var(--green);
 }
 
 input:checked+.toggle-slider:before {

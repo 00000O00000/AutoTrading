@@ -29,8 +29,26 @@ function setColorMode(mode) {
     const finalMode = mode === 'red_up' ? 'red_up' : 'green_up';
     localStorage.setItem(COLOR_MODE_KEY, finalMode);
     applyColorModeToCSS(finalMode);
+    applyColorModeToCharts();
     updateTickers();
     updateEquityChart();
+}
+
+function applyColorModeToCharts() {
+    const mode = getColorMode();
+    const upColor = mode === 'red_up' ? '#ff1744' : '#00c853';
+    const downColor = mode === 'red_up' ? '#00c853' : '#ff1744';
+    const upBg = mode === 'red_up' ? 'rgba(255, 23, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)';
+    const downBg = mode === 'red_up' ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 23, 68, 0.1)';
+    
+    if (equityChart && equityChart.data && equityChart.data.datasets && equityChart.data.datasets[0]) {
+        const values = equityChart.data.datasets[0].data || [];
+        const lastValue = values.length ? (values[values.length - 1] || 0) : 0;
+        const isPositive = lastValue >= 0;
+        equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
+        equityChart.data.datasets[0].backgroundColor = isPositive ? upBg : downBg;
+        equityChart.update('none');
+    }
 }
 
 // State
@@ -460,12 +478,19 @@ async function fetchAPI(endpoint, options = {}) {
 
 async function updateStatus() {
     const data = await fetchAPI('/status');
-    if (!data) return;
 
     const dotEl = document.getElementById('status-dot');
     const textEl = document.getElementById('status-text');
     const startBtn = document.getElementById('btn-start');
     const stopBtn = document.getElementById('btn-stop');
+
+    if (!data) {
+        if (dotEl) dotEl.className = 'status-dot disconnected';
+        if (textEl) textEl.textContent = '已断开';
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = true;
+        return;
+    }
 
     if (data.running) {
         if (dotEl) dotEl.className = 'status-dot running';
@@ -479,7 +504,6 @@ async function updateStatus() {
         if (stopBtn) stopBtn.disabled = true;
     }
 
-    // Live trading toggle
     const liveToggle = document.getElementById('live-trading');
     if (liveToggle) liveToggle.checked = data.live_trading || false;
 }
@@ -692,10 +716,11 @@ async function fetchPositions() {
     let html = '';
     data.forEach(pos => {
         const pnlClass = pos.unrealized_pnl >= 0 ? 'positive' : 'negative';
+        const sideLabel = pos.side === 'LONG' ? '做多' : '做空';
         html += `
             <tr>
                 <td>${pos.symbol.replace('/USDT', '')}</td>
-                <td><span class="badge ${pos.side === 'LONG' ? 'badge-success' : 'badge-danger'}">${pos.side}</span></td>
+                <td><span class="badge ${pos.side === 'LONG' ? 'badge-success' : 'badge-danger'}">${sideLabel}</span></td>
                 <td>${pos.leverage || 1}x</td>
                 <td>${parseFloat(pos.contracts).toFixed(4)}</td>
                 <td class="${pnlClass}">$${parseFloat(pos.unrealized_pnl).toFixed(2)}<br><small>${parseFloat(pos.percentage).toFixed(2)}%</small></td>
