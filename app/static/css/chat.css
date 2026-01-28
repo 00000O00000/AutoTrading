@@ -413,6 +413,14 @@
     color: var(--red);
 }
 
+.tool-status.positive {
+    color: var(--green);
+}
+
+.tool-status.negative {
+    color: var(--red);
+}
+
 /* 空状态 */
 .timeline-empty {
     text-align: center;
