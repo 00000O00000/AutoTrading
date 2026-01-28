@@ -555,6 +555,8 @@ function renderDecisionGroup(group) {
         'set_leverage': '设置杠杆',
         'set_margin_mode': '保证金模式',
         'modify_position': '修改止盈止损',
+        'cancel_orders': '取消挂单',
+        'cancel_order': '取消单个订单',
         'update_memory': '更新记忆'
     };
 
@@ -905,6 +907,8 @@ const TOOL_NAMES_TIMELINE = {
     'set_leverage': '设置杠杆',
     'set_margin_mode': '保证金模式',
     'modify_position': '修改止盈止损',
+    'cancel_orders': '取消挂单',
+    'cancel_order': '取消单个订单',
     'update_memory': '更新记忆'
 };
 
