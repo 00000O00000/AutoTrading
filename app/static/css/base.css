@@ -14,6 +14,8 @@
     --shadow-sm: none;
     --green: #00c853;
     --red: #ff1744;
+    --up-color: #ff1744;
+    --down-color: #00c853;
     --border-width: 2px;
 }
 

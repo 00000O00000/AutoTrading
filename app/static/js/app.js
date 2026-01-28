@@ -2,10 +2,36 @@
  * OpenNOF1 Frontend Logic
  */
 
-// Configuration
 const API_BASE = '/api';
-const REFRESH_INTERVAL = 5000; // 5 seconds
+const REFRESH_INTERVAL = 5000;
 const SYMBOLS = ['BTC', 'ETH', 'BNB', 'SOL', 'DOGE'];
+const COLOR_MODE_KEY = 'opennof1_color_mode';
+
+function getColorMode() {
+    const value = localStorage.getItem(COLOR_MODE_KEY);
+    if (value === 'green_up') return 'green_up';
+    return 'red_up';
+}
+
+function applyColorModeToCSS(mode) {
+    const root = document.documentElement;
+    if (!root) return;
+    if (mode === 'red_up') {
+        root.style.setProperty('--up-color', '#ff1744');
+        root.style.setProperty('--down-color', '#00c853');
+    } else {
+        root.style.setProperty('--up-color', '#00c853');
+        root.style.setProperty('--down-color', '#ff1744');
+    }
+}
+
+function setColorMode(mode) {
+    const finalMode = mode === 'red_up' ? 'red_up' : 'green_up';
+    localStorage.setItem(COLOR_MODE_KEY, finalMode);
+    applyColorModeToCSS(finalMode);
+    updateTickers();
+    updateEquityChart();
+}
 
 // State
 let equityChart = null;
@@ -57,16 +83,14 @@ function getLocalGroupKey(isoString) {
     return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize tabs
     initTabs();
 
-    // Initialize charts
+    applyColorModeToCSS(getColorMode());
+
     initEquityChart();
     initMiniCharts();
 
-    // Initial data fetch
     updateStatus();
     updateAccountSummary();
     updateEquityChart();
@@ -77,10 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchRecords();
     fetchInstructions();
 
-    // Setup event listeners
     setupEventListeners();
 
-    // Start polling
     setInterval(() => {
         updateStatus();
         updateAccountSummary();
@@ -88,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchPositions();
     }, REFRESH_INTERVAL);
 
-    // Slower poll for decisions, chart and records
     setInterval(() => {
         fetchDecisions();
         updateEquityChart();
@@ -237,7 +258,11 @@ async function updateTickers() {
         // Update mini chart color based on 24h change
         const chart = miniCharts[symbol];
         if (chart && ticker.change_24h !== undefined) {
-            const color = parseFloat(ticker.change_24h) >= 0 ? '#00c853' : '#ff1744';
+            const changeValue = parseFloat(ticker.change_24h) || 0;
+            const mode = getColorMode();
+            const upColor = mode === 'red_up' ? '#ff1744' : '#00c853';
+            const downColor = mode === 'red_up' ? '#00c853' : '#ff1744';
+            const color = changeValue >= 0 ? upColor : downColor;
             chart.data.datasets[0].borderColor = color;
             chart.update('none');
         }
@@ -257,6 +282,10 @@ function initEquityChart() {
     const ctx = document.getElementById('equityChart');
     if (!ctx) return;
 
+    const mode = getColorMode();
+    const upColor = mode === 'red_up' ? '#ff1744' : '#00c853';
+    const upBg = mode === 'red_up' ? 'rgba(255, 23, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)';
+
     equityChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -264,8 +293,8 @@ function initEquityChart() {
             datasets: [{
                 label: '收益率 %',
                 data: [],
-                borderColor: '#00c853',
-                backgroundColor: 'rgba(0, 200, 83, 0.1)',
+                borderColor: upColor,
+                backgroundColor: upBg,
                 borderWidth: 2,
                 fill: true,
                 tension: 0.3,
@@ -341,13 +370,15 @@ async function updateEquityChart() {
 
     const values = data.data.map(d => d.profit_pct);
 
-    // Update chart color based on last value
     const lastValue = values[values.length - 1] || 0;
-    const color = lastValue >= 0 ? '#00c853' : '#ff1744';
-    equityChart.data.datasets[0].borderColor = color;
-    equityChart.data.datasets[0].backgroundColor = lastValue >= 0
-        ? 'rgba(0, 200, 83, 0.1)'
-        : 'rgba(255, 23, 68, 0.1)';
+    const mode = getColorMode();
+    const upColor = mode === 'red_up' ? '#ff1744' : '#00c853';
+    const downColor = mode === 'red_up' ? '#00c853' : '#ff1744';
+    const upBg = mode === 'red_up' ? 'rgba(255, 23, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)';
+    const downBg = mode === 'red_up' ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 23, 68, 0.1)';
+    const isPositive = lastValue >= 0;
+    equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
+    equityChart.data.datasets[0].backgroundColor = isPositive ? upBg : downBg;
 
     equityChart.data.labels = labels;
     equityChart.data.datasets[0].data = values;
@@ -844,6 +875,15 @@ function setupEventListeners() {
             });
         }
     });
+
+    const colorModeCheckbox = document.getElementById('color-mode-red-up');
+    if (colorModeCheckbox) {
+        colorModeCheckbox.checked = getColorMode() === 'red_up';
+        colorModeCheckbox.addEventListener('change', () => {
+            const mode = colorModeCheckbox.checked ? 'red_up' : 'green_up';
+            setColorMode(mode);
+        });
+    }
 
     // Save instructions
     document.getElementById('btn-save-instructions')?.addEventListener('click', async () => {

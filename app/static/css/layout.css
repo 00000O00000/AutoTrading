@@ -64,8 +64,8 @@
     font-weight: 600;
 }
 
-.ticker-change.positive { color: var(--green); }
-.ticker-change.negative { color: var(--red); }
+.ticker-change.positive { color: var(--up-color); }
+.ticker-change.negative { color: var(--down-color); }
 
 /* 迷你走势图 */
 .mini-chart {
@@ -105,11 +105,11 @@
 }
 
 .chart-header .change.positive {
-    color: var(--green);
+    color: var(--up-color);
 }
 
 .chart-header .change.negative {
-    color: var(--red);
+    color: var(--down-color);
 }
 
 #equityChart {
@@ -154,11 +154,11 @@
 }
 
 .account-stat .positive {
-    color: var(--green);
+    color: var(--up-color);
 }
 
 .account-stat .negative {
-    color: var(--red);
+    color: var(--down-color);
 }
 
 /* 右侧面板 */

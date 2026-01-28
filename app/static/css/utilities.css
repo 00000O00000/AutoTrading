@@ -39,11 +39,11 @@
 }
 
 .text-green {
-    color: var(--green);
+    color: var(--up-color);
 }
 
 .text-red {
-    color: var(--red);
+    color: var(--down-color);
 }
 
 .text-muted {
@@ -52,12 +52,12 @@
 
 .text-success,
 .positive {
-    color: var(--green);
+    color: var(--up-color);
 }
 
 .text-danger,
 .negative {
-    color: var(--red);
+    color: var(--down-color);
 }
 
 /* Spacing */

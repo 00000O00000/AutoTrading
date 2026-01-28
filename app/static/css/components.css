@@ -95,9 +95,9 @@
 }
 
 .btn-success {
-    background: var(--green);
+    background: var(--up-color);
     color: #fff;
-    border-color: var(--green);
+    border-color: var(--up-color);
 }
 
 .btn-success:hover {
@@ -105,9 +105,9 @@
 }
 
 .btn-danger {
-    background: var(--red);
+    background: var(--down-color);
     color: #fff;
-    border-color: var(--red);
+    border-color: var(--down-color);
 }
 
 .btn-danger:hover {
@@ -148,7 +148,7 @@
 
 .form-control:focus {
     outline: none;
-    border-color: var(--green);
+    border-color: var(--up-color);
 }
 
 textarea.form-control {
@@ -167,15 +167,15 @@ textarea.form-control {
 }
 
 .badge-success {
-    background: var(--green);
+    background: var(--up-color);
     color: #fff;
-    border-color: var(--green);
+    border-color: var(--up-color);
 }
 
 .badge-danger {
-    background: var(--red);
+    background: var(--down-color);
     color: #fff;
-    border-color: var(--red);
+    border-color: var(--down-color);
 }
 
 .badge-warning {
@@ -219,12 +219,12 @@ textarea.form-control {
 }
 
 .status-dot.running {
-    background: var(--green);
+    background: var(--up-color);
     animation: pulse 1.5s infinite;
 }
 
 .status-dot.stopped {
-    background: var(--red);
+    background: var(--down-color);
 }
 
 @keyframes pulse {
@@ -277,7 +277,7 @@ textarea.form-control {
 }
 
 input:checked+.toggle-slider {
-    background-color: var(--green);
+    background-color: var(--up-color);
 }
 
 input:checked+.toggle-slider:before {

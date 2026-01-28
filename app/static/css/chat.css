@@ -26,11 +26,11 @@
 }
 
 .chat-bubble.buy {
-    border-left: 3px solid var(--green);
+    border-left: 3px solid var(--up-color);
 }
 
 .chat-bubble.sell {
-    border-left: 3px solid var(--red);
+    border-left: 3px solid var(--down-color);
 }
 
 /* MCP 工具调用 - 可折叠样式 */
@@ -42,11 +42,11 @@
 }
 
 .mcp-call.buy {
-    border-left: 3px solid var(--green);
+    border-left: 3px solid var(--up-color);
 }
 
 .mcp-call.sell {
-    border-left: 3px solid var(--red);
+    border-left: 3px solid var(--down-color);
 }
 
 .mcp-header {
@@ -222,11 +222,11 @@
 }
 
 .tool-card.buy {
-    border-left: 3px solid var(--green);
+    border-left: 3px solid var(--up-color);
 }
 
 .tool-card.sell {
-    border-left: 3px solid var(--red);
+    border-left: 3px solid var(--down-color);
 }
 
 .tool-badge {
@@ -251,11 +251,11 @@
 }
 
 .tool-status.positive {
-    color: var(--green);
+    color: var(--up-color);
 }
 
 .tool-status.negative {
-    color: var(--red);
+    color: var(--down-color);
 }
 
 .chat-header {
