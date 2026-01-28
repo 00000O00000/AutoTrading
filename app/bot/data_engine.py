@@ -424,6 +424,15 @@ class DataEngine:
             
             # 资金费率
             sections.append(f"  [Funding] {asset.funding_rate.funding_rate_annualized:+.2f}% (annualized)")
+            
+            # 手续费信息
+            try:
+                fees = self.binance.get_fees(symbol)
+                taker_fee = fees.get('taker', 0.0) * 100
+                maker_fee = fees.get('maker', 0.0) * 100
+                sections.append(f"  [Fees] Taker: {taker_fee:.3f}% | Maker: {maker_fee:.3f}%")
+            except Exception as e:
+                logger.debug("无法获取 %s 手续费: %s", symbol, e)
         
         # 账户部分
         if context.account_balance:
@@ -431,7 +440,51 @@ class DataEngine:
             sections.append("=" * 10)
             sections.append("[ACCOUNT]")
             sections.append("=" * 10)
-            sections.append(f"Balance: {context.account_balance['total']:.2f} USDT (Free: {context.account_balance['free']:.2f})")
+            
+            # 当前收益概览
+            balance = context.account_balance
+            total_equity = balance.get('total', 0) or 0
+            free_balance = balance.get('free', 0) or 0
+            
+            unrealized_pnl = 0
+            if context.positions:
+                unrealized_pnl = sum((p.get('unrealized_pnl') or 0) for p in context.positions)
+            
+            # 如果 total 不包含未实现盈亏，则进行修正
+            if total_equity == free_balance and unrealized_pnl != 0:
+                total_equity = free_balance + unrealized_pnl
+            
+            # 从历史快照中计算基准净值和 24 小时收益
+            try:
+                from app.models import EquitySnapshot
+                first_snapshot = EquitySnapshot.get_first()
+                base_equity = first_snapshot.total_equity if first_snapshot else total_equity
+                
+                total_profit = total_equity - base_equity
+                total_profit_pct = (total_profit / base_equity * 100) if base_equity > 0 else 0
+                
+                snapshot_24h = EquitySnapshot.get_24h_ago()
+                if snapshot_24h:
+                    profit_24h = total_equity - snapshot_24h.total_equity
+                    profit_24h_pct = (profit_24h / snapshot_24h.total_equity * 100) if snapshot_24h.total_equity > 0 else 0
+                else:
+                    profit_24h = 0
+                    profit_24h_pct = 0
+            except Exception as e:
+                logger.debug("无法计算收益快照: %s", e)
+                base_equity = total_equity
+                total_profit = 0
+                total_profit_pct = 0
+                profit_24h = 0
+                profit_24h_pct = 0
+            
+            sections.append(f"Balance: {total_equity:.2f} USDT (Free: {free_balance:.2f})")
+            sections.append(
+                f"Total Profit: {total_profit:+.2f} USDT ({total_profit_pct:+.2f}%)"
+            )
+            sections.append(
+                f"24h Profit: {profit_24h:+.2f} USDT ({profit_24h_pct:+.2f}%)"
+            )
             
             if context.positions:
                 sections.append("Open Positions:")

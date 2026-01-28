@@ -912,7 +912,7 @@ async function fetchRecords() {
     const container = document.getElementById('records-timeline');
     if (!container) return;
     
-    const data = await fetchAPI('/decisions');
+    const data = await fetchAPI('/records');
     
     if (!data || !Array.isArray(data) || data.length === 0) {
         container.innerHTML = '<div class="timeline-empty">暂无交易记录</div>';

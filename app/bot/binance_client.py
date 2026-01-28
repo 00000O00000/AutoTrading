@@ -613,6 +613,29 @@ class BinanceClient:
             'amount': precision.get('amount', 8)
         }
     
+    def get_fees(self, symbol: str) -> Dict[str, float]:
+        """
+        获取交易对的手续费率。
+        
+        Returns:
+            Dict 包含 taker 和 maker 手续费 (小数形式，例如 0.0004 表示 0.04%)
+        """
+        self.load_markets()
+        market = self._markets_cache.get(symbol, {})
+        taker = market.get('taker')
+        maker = market.get('maker')
+        
+        # 币安 USDT-M 永续常见默认费率 (示例值，实际以交易所返回为准)
+        if taker is None:
+            taker = 0.0004
+        if maker is None:
+            maker = 0.0002
+        
+        return {
+            'taker': float(taker),
+            'maker': float(maker)
+        }
+    
     def truncate_to_precision(self, value: float, precision: int) -> float:
         """截断到指定精度。"""
         multiplier = 10 ** precision

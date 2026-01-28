@@ -173,6 +173,42 @@ def api_decisions():
         return jsonify({'error': str(e)}), 500
 
 
+@main_bp.route('/api/records')
+def api_records():
+    """获取历史交易记录。"""
+    try:
+        limit = request.args.get('limit', type=int)
+        query = TradeDecision.query.order_by(TradeDecision.timestamp.desc())
+        if limit and limit > 0:
+            query = query.limit(limit)
+        decisions = query.all()
+        
+        result = []
+        for d in decisions:
+            try:
+                args = json.loads(d.tool_args) if d.tool_args else {}
+            except Exception:
+                args = {}
+            
+            result.append({
+                'id': d.id,
+                'timestamp': _format_timestamp(d.timestamp),
+                'symbol': d.symbol,
+                'action': d.action,
+                'info': d.display_info,
+                'tool_name': d.tool_name,
+                'args': args,
+                'status': d.execution_status,
+                'price': d.executed_price,
+                'reasoning': d.ai_reasoning
+            })
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error("Failed to fetch records: %s", e)
+        return jsonify({'error': str(e)}), 500
+
+
 @main_bp.route('/api/positions')
 def api_positions():
     """获取当前持仓。"""
