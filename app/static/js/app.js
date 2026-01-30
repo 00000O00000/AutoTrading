@@ -43,9 +43,11 @@ function applyColorModeToCharts() {
     
     if (equityChart && equityChart.data && equityChart.data.datasets && equityChart.data.datasets[0]) {
         const values = equityChart.data.datasets[0].data || [];
-        const lastValue = values.length ? (values[values.length - 1] || 0) : 0;
-        const isPositive = lastValue >= 0;
-        equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
+        const borderColorFn = (ctx) => {
+            const v = ctx?.parsed?.y ?? 0;
+            return v >= 0 ? upColor : downColor;
+        };
+        equityChart.data.datasets[0].borderColor = borderColorFn;
         equityChart.data.datasets[0].backgroundColor = getEquityFillGradient(equityChart, upBg, downBg);
         const pointColors = values.map(v => (v >= 0 ? upColor : downColor));
         equityChart.data.datasets[0].pointBackgroundColor = pointColors;
@@ -433,16 +435,18 @@ async function updateEquityChart() {
     equityChart.data.labels = labels;
     equityChart.data.datasets[0].data = values;
     
-    const lastValue = values[values.length - 1] || 0;
     const mode = getColorMode();
     const upColor = mode === 'red_up' ? '#ff1744' : '#00c853';
     const downColor = mode === 'red_up' ? '#00c853' : '#ff1744';
     const upBg = mode === 'red_up' ? 'rgba(255, 23, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)';
     const downBg = mode === 'red_up' ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 23, 68, 0.1)';
-    const isPositive = lastValue >= 0;
     const pointColors = values.map(v => (v >= 0 ? upColor : downColor));
+    const borderColorFn = (ctx) => {
+        const v = ctx?.parsed?.y ?? 0;
+        return v >= 0 ? upColor : downColor;
+    };
 
-    equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
+    equityChart.data.datasets[0].borderColor = borderColorFn;
     equityChart.data.datasets[0].pointBackgroundColor = pointColors;
     equityChart.data.datasets[0].pointBorderColor = pointColors;
     equityChart.data.datasets[0].pointHoverBackgroundColor = pointColors;
