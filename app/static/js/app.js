@@ -65,19 +65,24 @@ function getEquityFillGradient(chart, upBg, downBg) {
     const top = chartArea.top;
     const bottom = chartArea.bottom;
     const zeroPixel = yScale.getPixelForValue(0);
-    if (zeroPixel <= top) {
+
+    if (!isFinite(zeroPixel)) {
         return upBg;
     }
-    if (zeroPixel >= bottom) {
+
+    if (zeroPixel <= top) {
         return downBg;
     }
+    if (zeroPixel >= bottom) {
+        return upBg;
+    }
+
     const gradient = ctx.createLinearGradient(0, bottom, 0, top);
     const ratio = (bottom - zeroPixel) / (bottom - top);
-    const r1 = Math.max(Math.min(ratio - 0.001, 1), 0);
-    const r2 = Math.max(Math.min(ratio + 0.001, 1), 0);
+    const r = Math.max(Math.min(ratio, 1), 0);
     gradient.addColorStop(0, downBg);
-    gradient.addColorStop(r1, downBg);
-    gradient.addColorStop(r2, upBg);
+    gradient.addColorStop(r, downBg);
+    gradient.addColorStop(r, upBg);
     gradient.addColorStop(1, upBg);
     return gradient;
 }
@@ -425,6 +430,9 @@ async function updateEquityChart() {
 
     const values = data.data.map(d => d.profit_pct);
 
+    equityChart.data.labels = labels;
+    equityChart.data.datasets[0].data = values;
+    
     const lastValue = values[values.length - 1] || 0;
     const mode = getColorMode();
     const upColor = mode === 'red_up' ? '#ff1744' : '#00c853';
@@ -432,19 +440,16 @@ async function updateEquityChart() {
     const upBg = mode === 'red_up' ? 'rgba(255, 23, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)';
     const downBg = mode === 'red_up' ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 23, 68, 0.1)';
     const isPositive = lastValue >= 0;
-    equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
-    equityChart.data.datasets[0].backgroundColor = getEquityFillGradient(equityChart, upBg, downBg);
     const pointColors = values.map(v => (v >= 0 ? upColor : downColor));
+
+    equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
     equityChart.data.datasets[0].pointBackgroundColor = pointColors;
     equityChart.data.datasets[0].pointBorderColor = pointColors;
     equityChart.data.datasets[0].pointHoverBackgroundColor = pointColors;
     equityChart.data.datasets[0].pointHoverBorderColor = pointColors;
 
-    equityChart.data.labels = labels;
-    equityChart.data.datasets[0].data = values;
-    
-    // 先调用 resize 确保图表尺寸正确计算，再更新数据
-    equityChart.resize();
+    equityChart.update('none');
+    equityChart.data.datasets[0].backgroundColor = getEquityFillGradient(equityChart, upBg, downBg);
     equityChart.update('none');
 }
 
