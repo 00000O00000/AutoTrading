@@ -46,9 +46,40 @@ function applyColorModeToCharts() {
         const lastValue = values.length ? (values[values.length - 1] || 0) : 0;
         const isPositive = lastValue >= 0;
         equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
-        equityChart.data.datasets[0].backgroundColor = isPositive ? upBg : downBg;
+        equityChart.data.datasets[0].backgroundColor = getEquityFillGradient(equityChart, upBg, downBg);
+        const pointColors = values.map(v => (v >= 0 ? upColor : downColor));
+        equityChart.data.datasets[0].pointBackgroundColor = pointColors;
+        equityChart.data.datasets[0].pointBorderColor = pointColors;
+        equityChart.data.datasets[0].pointHoverBackgroundColor = pointColors;
+        equityChart.data.datasets[0].pointHoverBorderColor = pointColors;
         equityChart.update('none');
     }
+}
+
+function getEquityFillGradient(chart, upBg, downBg) {
+    if (!chart) return upBg;
+    const ctx = chart.ctx;
+    const chartArea = chart.chartArea;
+    const yScale = chart.scales.y;
+    if (!ctx || !chartArea || !yScale) return upBg;
+    const top = chartArea.top;
+    const bottom = chartArea.bottom;
+    const zeroPixel = yScale.getPixelForValue(0);
+    if (zeroPixel <= top) {
+        return upBg;
+    }
+    if (zeroPixel >= bottom) {
+        return downBg;
+    }
+    const gradient = ctx.createLinearGradient(0, bottom, 0, top);
+    const ratio = (bottom - zeroPixel) / (bottom - top);
+    const r1 = Math.max(Math.min(ratio - 0.001, 1), 0);
+    const r2 = Math.max(Math.min(ratio + 0.001, 1), 0);
+    gradient.addColorStop(0, downBg);
+    gradient.addColorStop(r1, downBg);
+    gradient.addColorStop(r2, upBg);
+    gradient.addColorStop(1, upBg);
+    return gradient;
 }
 
 // State
@@ -301,6 +332,7 @@ function initEquityChart() {
     if (!ctx) return;
 
     const mode = getColorMode();
+    const isMobile = window.innerWidth <= 768;
     const upColor = mode === 'red_up' ? '#ff1744' : '#00c853';
     const upBg = mode === 'red_up' ? 'rgba(255, 23, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)';
 
@@ -317,7 +349,11 @@ function initEquityChart() {
                 fill: true,
                 tension: 0.3,
                 pointRadius: 0,
-                pointHoverRadius: 4
+                pointHoverRadius: 4,
+                pointBackgroundColor: upColor,
+                pointBorderColor: upColor,
+                pointHoverBackgroundColor: upColor,
+                pointHoverBorderColor: upColor
             }]
         },
         options: {
@@ -342,7 +378,7 @@ function initEquityChart() {
                     },
                     ticks: {
                         maxTicksLimit: 6,
-                        font: { size: 10 }
+                        font: { size: isMobile ? 8 : 10 }
                     }
                 },
                 y: {
@@ -356,7 +392,8 @@ function initEquityChart() {
                     },
                     ticks: {
                         callback: (v) => `${v.toFixed(1)}%`,
-                        font: { size: 10 }
+                        font: { size: isMobile ? 8 : 10 },
+                        padding: isMobile ? 0 : 3
                     }
                 }
             },
@@ -396,7 +433,12 @@ async function updateEquityChart() {
     const downBg = mode === 'red_up' ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 23, 68, 0.1)';
     const isPositive = lastValue >= 0;
     equityChart.data.datasets[0].borderColor = isPositive ? upColor : downColor;
-    equityChart.data.datasets[0].backgroundColor = isPositive ? upBg : downBg;
+    equityChart.data.datasets[0].backgroundColor = getEquityFillGradient(equityChart, upBg, downBg);
+    const pointColors = values.map(v => (v >= 0 ? upColor : downColor));
+    equityChart.data.datasets[0].pointBackgroundColor = pointColors;
+    equityChart.data.datasets[0].pointBorderColor = pointColors;
+    equityChart.data.datasets[0].pointHoverBackgroundColor = pointColors;
+    equityChart.data.datasets[0].pointHoverBorderColor = pointColors;
 
     equityChart.data.labels = labels;
     equityChart.data.datasets[0].data = values;
